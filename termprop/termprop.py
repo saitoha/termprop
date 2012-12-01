@@ -156,6 +156,7 @@ class Termprop:
     euc4 = False
     width_data_version = 500
     cimbining_data_version = 500
+    has_256color = False
     """
     __count = 0
     __oldtermios = 0
@@ -223,8 +224,8 @@ class Termprop:
             self.__oldtermios = termios.tcgetattr(0)
             new = termios.tcgetattr(0)
             new[3] &= ~(termios.ECHO | termios.ICANON)
-            new[6][termios.VMIN] = 1
-            new[6][termios.VTIME] = 0
+            new[6][termios.VMIN] = 20
+            new[6][termios.VTIME] = 1
             termios.tcsetattr(0, termios.TCSANOW, new)
     
     def _cleanupterm(self):
@@ -232,16 +233,18 @@ class Termprop:
             return
         self.__count -= 1
         if self.__count == 0:
-            termios.tcsetattr(0, termios.TCSANOW, self.__oldtermios)
+            termios.tcsetattr(0, termios.TCSADRAIN, self.__oldtermios)
             self.__oldtermios = None
 
+    def test(self):
+        print "has_cpr: %s" % self.has_cpr
+        print "cpr_off_by_one_glitch: %s" % self.cpr_off_by_one_glitch
+        print "cjk: %s" % self.is_cjk
+        print "nonbmp: %s" % self.has_nonbmp
+        print "combine: %s" % self.has_combine
+        print "title: %s" % self.has_title
+        print "mb_title: %s" % self.has_mb_title
+
 if __name__ == "__main__":
-    termprop = Termprop()
-    print "has_cpr: %s" % termprop.has_cpr
-    print "cpr_off_by_one_glitch: %s" % termprop.cpr_off_by_one_glitch
-    print "cjk: %s" % termprop.is_cjk
-    print "nonbmp: %s" % termprop.has_nonbmp
-    print "combine: %s" % termprop.has_combine
-    print "title: %s" % termprop.has_title
-    print "mb_title: %s" % termprop.has_mb_title
+    Termprop().test()
 
