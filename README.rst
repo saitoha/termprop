@@ -1,0 +1,42 @@
+termprop
+========
+
+What is This
+------------
+
+    termprop detects some terminal glitches and advanced facilities information,
+    that terminfo does not provide.
+    This package is inspired MinEd's termprop.c.
+
+Install
+-------
+
+via github ::
+
+    $ git clone https://github.com/saitoha/termprop.git
+    $ cd termprop
+    $ python setup.py install
+
+or via pip ::
+
+    $ pip install termprop
+
+
+Usage
+-----
+
+Comming soon...
+
+Dependency
+----------
+
+ - wcwidth.py
+   https://svn.wso2.org/repos/wso2/carbon/platform/trunk/dependencies/cassandra/pylib/cqlshlib/wcwidth.py
+   (Licensed under Apache License 2.0)
+
+Reference
+---------
+
+ - Unicode Text Editor MinEd http://towo.net/mined/
+
+
