@@ -148,6 +148,7 @@ class Termprop:
     """
     # not implemented
     parser_model = 1 # 0: ISO-2022 / 1: Unicode
+    presentation_width_glitch = False
     has_spacing_combining = False
     wide_Yijing_hexagrams = True
     printable_bidi_controls = False
@@ -185,15 +186,9 @@ class Termprop:
     
             # select wcwidth
             if self.is_cjk:
-                self.wcwidth = ww.wcwidth_cjk
-                self.wcswidth = ww.wcswidth_cjk
-                self.mk_wcwidth = ww.mk_wcwidth_cjk
-                self.mk_wcswidth = ww.mk_wcswidth_cjk
+                self.set_cjk()
             else:
-                self.wcwidth = ww.wcwidth
-                self.wcswidth = ww.wcswidth
-                self.mk_wcwidth = ww.mk_wcwidth
-                self.mk_wcswidth = ww.mk_wcswidth
+                self.set_noncjk()
 
             # detect title capability
             self.has_title = _guess_title()
@@ -203,6 +198,28 @@ class Termprop:
 
         finally:
             self._cleanupterm()
+
+    def set_cjk(self):
+        self.is_cjk = True
+        self.wcwidth = ww.wcwidth_cjk
+        self.wcswidth = ww.wcswidth_cjk
+        self.mk_wcwidth = ww.mk_wcwidth_cjk
+        self.mk_wcswidth = ww.mk_wcswidth_cjk
+
+    def set_noncjk(self):
+        self.is_cjk = False
+        self.wcwidth = ww.wcwidth
+        self.wcswidth = ww.wcswidth
+        self.mk_wcwidth = ww.mk_wcwidth
+        self.mk_wcswidth = ww.mk_wcswidth
+
+    def wcwidth(self, c):
+        _wcwidth = self.mk_wcwidth
+        return _wcwidth(c)
+
+    def wcswidth(self, s):
+        _wcswidth = self.mk_wcswidth
+        return _wcswidth(map(ord, s))
 
     def getyx(self):
         self._setupterm()
