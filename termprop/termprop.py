@@ -19,7 +19,7 @@
 # ***** END LICENSE BLOCK *****
 
 __author__  = "Hayaki Saito (user@zuse.jp)"
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 __license__ = "GPL v3"
 
 import sys, os, termios, select, re
@@ -262,6 +262,10 @@ class Termprop:
         print "title: %s" % self.has_title
         print "mb_title: %s" % self.has_mb_title
 
-if __name__ == "__main__":
+def test():
     Termprop().test()
+
+if __name__ == "__main__":
+    test()
+
 

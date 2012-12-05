@@ -7,6 +7,8 @@ import inspect, os
 filename = inspect.getfile(inspect.currentframe())
 dirpath = os.path.abspath(os.path.dirname(inspect.getfile(inspect.currentframe())))
 
+import termprop
+termprop.test()
 
 setup(name                  = 'termprop',
       version               = __version__,

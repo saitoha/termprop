@@ -2,10 +2,12 @@
 PACKAGE_NAME=termprop
 PYTHON=python
 
-all:
-	
+all: test
+	$(PYTHON) setup.py sdist
+	python2.6 setup.py bdist_egg
+	python2.7 setup.py bdist_egg
 
-install:
+install: test 
 	$(PYTHON) -c "import setuptools" || curl http://peak.telecommunity.com/dist/ez_setup.py | python
 	$(PYTHON) setup.py install
 
@@ -15,7 +17,10 @@ uninstall:
 clean:
 	rm -rf dist/ build/ *.egg-info *.pyc **/*.pyc
 
-update:
+test:
+	$(PYTHON) setup.py test
+
+update: clean test
 	$(PYTHON) setup.py register
 	$(PYTHON) setup.py sdist upload
 	python2.6 setup.py bdist_egg upload
