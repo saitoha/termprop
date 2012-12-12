@@ -184,7 +184,7 @@ class Termprop:
 
     def __init__(self):
         self._setupterm()
-        sys.stdout.write("\x1b7\x1b[8m\x1b[?25l")
+        sys.stdout.write("\x1b7\x1b[30;8m\x1b[?25l")
         try:
             cpr_state = _guess_cpr()
             self.color_bg = _get_bg()
@@ -221,7 +221,7 @@ class Termprop:
             sys.stdout.write("\x1b]2;\x1b\\")
 
         finally:
-            sys.stdout.write("\x1b[?25h\x1b[28m\x1b8")
+            sys.stdout.write("\x1b[?25h\x1b[0m\x1b8")
             self._cleanupterm()
 
     def set_cjk(self):
@@ -266,7 +266,7 @@ class Termprop:
             self.__oldtermios = termios.tcgetattr(0)
             new = termios.tcgetattr(0)
             new[3] &= ~(termios.ECHO | termios.ICANON)
-            new[6][termios.VMIN] = 20
+            new[6][termios.VMIN] = 4
             new[6][termios.VTIME] = 1
             termios.tcsetattr(0, termios.TCSANOW, new)
     
