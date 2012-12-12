@@ -20,3 +20,5 @@
 
 from termprop import *
 
+if __name__ == "__main__":
+    termprop.test()

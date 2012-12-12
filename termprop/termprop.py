@@ -19,7 +19,7 @@
 # ***** END LICENSE BLOCK *****
 
 __author__  = "Hayaki Saito (user@zuse.jp)"
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 __license__ = "GPL v3"
 
 import sys, os, termios, select, re
@@ -41,6 +41,21 @@ def _getcpr():
             col = int(m.group(2))
             return row, col 
     return None
+
+_bg_pattern = re.compile('\x1b\][0-9]+;rgb\:([0-9A-Fa-f]+\/[0-9A-Fa-f]+\/[0-9A-Fa-f]+)\x1b\\\\')
+def _getbg():
+    data = ""        
+    for i in xrange(0, 3):
+        sys.stdout.write("\x1b]11;?\x1b\\")
+        sys.stdout.flush()
+        rfd, wfd, xfd = select.select([0], [], [], 0.2)
+        if rfd:
+            data += os.read(0, 1024)
+            m = _bg_pattern.match(data)
+            if m is None:
+                continue
+            params = m.group(1).split("/")
+            return params 
 
 _da1_pattern = re.compile('\x1b\[\?([0-9;\.]+)c')
 def _getda1():
@@ -110,6 +125,9 @@ def _get_width(s):
             return size
     return -1
 
+def _get_bg():
+    return _getbg()
+
 def _guess_cjk():
     if _get_width("▽") == 2:
         return True
@@ -138,12 +156,14 @@ def _guess_mb_title():
 class Termprop:
 
     has_cpr = False
+    has_color_report = False
     cpr_off_by_one_glitch = False
     is_cjk = False
     has_nonbmp = False
     has_combine = False
     has_title = False
     has_mb_title = False
+    color_bg = ""
 
     """
     # not implemented
@@ -164,8 +184,12 @@ class Termprop:
 
     def __init__(self):
         self._setupterm()
+        sys.stdout.write("\x1b7\x1b[8m\x1b[?25l")
         try:
             cpr_state = _guess_cpr()
+            self.color_bg = _get_bg()
+            if self.color_bg:
+                self.has_color_report = True
     
             # detect CPR(DSR 6) capability
             if cpr_state == _CPR_NOT_SUPPORTED:
@@ -197,6 +221,7 @@ class Termprop:
             sys.stdout.write("\x1b]2;\x1b\\")
 
         finally:
+            sys.stdout.write("\x1b[?25h\x1b[28m\x1b8")
             self._cleanupterm()
 
     def set_cjk(self):
@@ -255,6 +280,8 @@ class Termprop:
 
     def test(self):
         print "has_cpr: %s" % self.has_cpr
+        print "has_color_report: %s" % self.has_color_report
+        print "color_bg: %s" % self.color_bg
         print "cpr_off_by_one_glitch: %s" % self.cpr_off_by_one_glitch
         print "cjk: %s" % self.is_cjk
         print "nonbmp: %s" % self.has_nonbmp
