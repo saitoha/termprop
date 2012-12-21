@@ -57,7 +57,7 @@ def _getbg():
             params = m.group(1).split("/")
             return params 
 
-_da1_pattern = re.compile('\x1b\[\?([0-9;\.]+)c')
+_da1_pattern = re.compile('\x1b\[(\?[0-9;\.]+)c')
 def _getda1():
     data = ""        
     for i in xrange(0, 3):
@@ -66,13 +66,12 @@ def _getda1():
         rfd, wfd, xfd = select.select([0], [], [], 0.2)
         if rfd:
             data += os.read(0, 1024)
-            m = _da2_pattern.match(data)
+            m = _da1_pattern.match(data)
             if m is None:
                 continue
-            params = m.group(1).split(";")
-            return params 
+            return m.group(1)
 
-_da2_pattern = re.compile('\x1b\[<([0-9;]+)c')
+_da2_pattern = re.compile('\x1b\[([<\?0-9;]+)c')
 def _getda2():
     data = ""
     for i in xrange(0, 3):
@@ -84,8 +83,7 @@ def _getda2():
             m = _da2_pattern.match(data)
             if m is None:
                 continue
-            params = m.group(1).split(";")
-            return params 
+            return m.group(1)
 
 def _getenq(stdin, stdout):
     data = ""
@@ -164,6 +162,8 @@ class Termprop:
     has_title = False
     has_mb_title = False
     color_bg = ""
+    da1 = -1
+    da2 = -1
 
     """
     # not implemented
@@ -186,6 +186,10 @@ class Termprop:
         self._setupterm()
         sys.stdout.write("\x1b7\x1b[30;8m\x1b[?25l")
         try:
+            # get device attributes
+            self.da1 = _getda1()
+            self.da2 = _getda2()
+
             cpr_state = _guess_cpr()
             self.color_bg = _get_bg()
             if self.color_bg:
