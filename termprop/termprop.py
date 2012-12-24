@@ -104,7 +104,7 @@ def _guess_cpr():
     sys.stdout.write("\x0d")
     pos = _getcpr()
     if pos is None:
-        return _CPR_NOT_SUPPORT
+        return _CPR_NOT_SUPPORTED
     y, x = pos
     if x == 0:
         return _CPR_OFF_BY_ONE
