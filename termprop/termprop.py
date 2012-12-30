@@ -104,7 +104,7 @@ def _guess_cpr():
     sys.stdout.write("\x0d")
     pos = _getcpr()
     if pos is None:
-        return _CPR_NOT_SUPPORT
+        return _CPR_NOT_SUPPORTED
     y, x = pos
     if x == 0:
         return _CPR_OFF_BY_ONE
@@ -155,6 +155,7 @@ class Termprop:
 
     has_cpr = False
     has_color_report = False
+    has_256color = False
     cpr_off_by_one_glitch = False
     is_cjk = False
     has_nonbmp = False
@@ -222,6 +223,11 @@ class Termprop:
             self.has_title = _guess_title()
             if self.has_title:
                 self.has_mb_title = _guess_mb_title()
+
+            #env_term = os.getenv("TERM", "")
+
+            #pattern_256color = re.compile('(256color|terminator|iTerm)')
+            #if env_term
             sys.stdout.write("\x1b]2;\x1b\\")
 
         finally:
@@ -270,7 +276,7 @@ class Termprop:
             self.__oldtermios = termios.tcgetattr(0)
             new = termios.tcgetattr(0)
             new[3] &= ~(termios.ECHO | termios.ICANON)
-            new[6][termios.VMIN] = 4
+            new[6][termios.VMIN] = 20 
             new[6][termios.VTIME] = 1
             termios.tcsetattr(0, termios.TCSANOW, new)
     
