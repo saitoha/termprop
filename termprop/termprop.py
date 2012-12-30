@@ -61,7 +61,7 @@ _da1_pattern = re.compile('\x1b\[(\?[0-9;\.]+)c')
 def _getda1():
     data = ""        
     for i in xrange(0, 3):
-        sys.stdout.write("\x1b[?c")
+        sys.stdout.write("\x1b[c")
         sys.stdout.flush()
         rfd, wfd, xfd = select.select([0], [], [], 0.2)
         if rfd:
@@ -70,12 +70,13 @@ def _getda1():
             if m is None:
                 continue
             return m.group(1)
+    return "-"
 
-_da2_pattern = re.compile('\x1b\[([<\?0-9;]+)c')
+_da2_pattern = re.compile('\x1b\[([>\?0-9;]+)c')
 def _getda2():
     data = ""
     for i in xrange(0, 3):
-        sys.stdout.write("\x1b[>0c")
+        sys.stdout.write("\x1b[>c")
         sys.stdout.flush()
         rfd, wfd, xfd = select.select([0], [], [], 0.2)
         if rfd:
@@ -84,6 +85,7 @@ def _getda2():
             if m is None:
                 continue
             return m.group(1)
+    return "-"
 
 def _getenq(stdin, stdout):
     data = ""
@@ -187,15 +189,15 @@ class Termprop:
         self._setupterm()
         sys.stdout.write("\x1b7\x1b[30;8m\x1b[?25l")
         try:
-            # get device attributes
-            self.da1 = _getda1()
-            self.da2 = _getda2()
-
             cpr_state = _guess_cpr()
             self.color_bg = _get_bg()
             if self.color_bg:
                 self.has_color_report = True
     
+            # get device attributes
+            self.da1 = _getda1()
+            self.da2 = _getda2()
+
             # detect CPR(DSR 6) capability
             if cpr_state == _CPR_NOT_SUPPORTED:
                 self.has_cpr = False
@@ -298,6 +300,8 @@ class Termprop:
         print "combine: %s" % self.has_combine
         print "title: %s" % self.has_title
         print "mb_title: %s" % self.has_mb_title
+        print "DA1: %s" % self.da1
+        print "DA2: %s" % self.da2
 
 def test():
     Termprop().test()
