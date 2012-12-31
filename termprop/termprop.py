@@ -179,7 +179,7 @@ class Termprop:
     euc3 = False
     euc4 = False
     width_data_version = 500
-    cimbining_data_version = 500
+    combining_data_version = 500
     has_256color = False
     """
     __count = 0
@@ -283,12 +283,11 @@ class Termprop:
             termios.tcsetattr(0, termios.TCSANOW, new)
     
     def _cleanupterm(self):
-        if self.__count <= 0:
-            return
-        self.__count -= 1
-        if self.__count == 0:
-            termios.tcsetattr(0, termios.TCSADRAIN, self.__oldtermios)
-            self.__oldtermios = None
+        if self.__count > 0:
+            self.__count -= 1
+            if self.__count == 0:
+                termios.tcsetattr(0, termios.TCSADRAIN, self.__oldtermios)
+                self.__oldtermios = None
 
     def test(self):
         print "has_cpr: %s" % self.has_cpr
