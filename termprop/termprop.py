@@ -167,6 +167,7 @@ class Termprop:
     color_bg = ""
     da1 = -1
     da2 = -1
+    has_256color = False
 
     """
     # not implemented
@@ -180,7 +181,6 @@ class Termprop:
     euc4 = False
     width_data_version = 500
     combining_data_version = 500
-    has_256color = False
     """
     __count = 0
     __oldtermios = 0
@@ -226,10 +226,13 @@ class Termprop:
             if self.has_title:
                 self.has_mb_title = _guess_mb_title()
 
-            #env_term = os.getenv("TERM", "")
+            env_term = os.getenv("TERM", "")
 
-            #pattern_256color = re.compile('(256color|terminator|iTerm)')
-            #if env_term
+            # detect color capability
+            _pattern_256color = re.compile('(256color|terminator|iTerm)')
+            if _pattern_256color.match(env_term):
+                self.has_256color = True
+
             sys.stdout.write("\x1b]2;\x1b\\")
 
         finally:
@@ -270,6 +273,13 @@ class Termprop:
             return (y + 1, x + 1)
         finally:
             self._cleanupterm()
+
+    def is_vte(self):
+        if self.da1 != "?62;9;":
+            return False
+        if re.match(">1;[23][0-9]{3};0", self.da2):
+            return False
+        return True
 
     def _setupterm(self):
         self.__count += 1
