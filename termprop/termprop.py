@@ -311,6 +311,7 @@ class Termprop:
         print "mb_title: %s" % self.has_mb_title
         print "DA1: %s" % self.da1
         print "DA2: %s" % self.da2
+        print "is_vte: %s" % self.is_vte()
 
 def test():
     Termprop().test()
