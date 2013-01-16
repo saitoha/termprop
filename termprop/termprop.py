@@ -277,7 +277,7 @@ class Termprop:
     def is_vte(self):
         if self.da1 != "?62;9;":
             return False
-        if re.match(">1;[23][0-9]{3};0", self.da2):
+        if not re.match(">1;[23][0-9]{3};0", self.da2):
             return False
         return True
 
