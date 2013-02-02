@@ -18,7 +18,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # ***** END LICENSE BLOCK *****
 
-from termprop import *
+from termprop import Termprop
 
 if __name__ == "__main__":
-    termprop.test()
+    Termprop().test()
