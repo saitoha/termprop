@@ -1,367 +1,94 @@
-# Licensed to the Apache Software Foundation (ASF) under one
-# or more contributor license agreements.  See the NOTICE file
-# distributed with this work for additional information
-# regarding copyright ownership.  The ASF licenses this file
-# to you under the Apache License, Version 2.0 (the
-# "License"); you may not use this file except in compliance
-# with the License.  You may obtain a copy of the License at
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# ***** BEGIN LICENSE BLOCK *****
+# Copyright (C) 2012  Hayaki Saito <user@zuse.jp>
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# adapted from http://www.cl.cam.ac.uk/~mgk25/ucs/wcwidth.c
-# -thepaul
-
-# This is an implementation of wcwidth() and wcswidth() (defined in
-# IEEE Std 1002.1-2001) for Unicode.
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 #
-# http://www.opengroup.org/onlinepubs/007904975/functions/wcwidth.html
-# http://www.opengroup.org/onlinepubs/007904975/functions/wcswidth.html
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
-# In fixed-width output devices, Latin characters all occupy a single
-# "cell" position of equal width, whereas ideographic CJK characters
-# occupy two such cells. Interoperability between terminal-line
-# applications and (teletype-style) character terminals using the
-# UTF-8 encoding requires agreement on which character should advance
-# the cursor by how many cell positions. No established formal
-# standards exist at present on which Unicode character shall occupy
-# how many cell positions on character terminals. These routines are
-# a first attempt of defining such behavior based on simple rules
-# applied to data provided by the Unicode Consortium.
-#
-# For some graphical characters, the Unicode standard explicitly
-# defines a character-cell width via the definition of the East Asian
-# FullWidth (F), Wide (W), Half-width (H), and Narrow (Na) classes.
-# In all these cases, there is no ambiguity about which width a
-# terminal shall use. For characters in the East Asian Ambiguous (A)
-# class, the width choice depends purely on a preference of backward
-# compatibility with either historic CJK or Western practice.
-# Choosing single-width for these characters is easy to justify as
-# the appropriate long-term solution, as the CJK practice of
-# displaying these characters as double-width comes from historic
-# implementation simplicity (8-bit encoded characters were displayed
-# single-width and 16-bit ones double-width, even for Greek,
-# Cyrillic, etc.) and not any typographic considerations.
-#
-# Much less clear is the choice of width for the Not East Asian
-# (Neutral) class. Existing practice does not dictate a width for any
-# of these characters. It would nevertheless make sense
-# typographically to allocate two character cells to characters such
-# as for instance EM SPACE or VOLUME INTEGRAL, which cannot be
-# represented adequately with a single-width glyph. The following
-# routines at present merely assign a single-cell width to all
-# neutral characters, in the interest of simplicity. This is not
-# entirely satisfactory and should be reconsidered before
-# establishing a formal standard in this area. At the moment, the
-# decision which Not East Asian (Neutral) characters should be
-# represented by double-width glyphs cannot yet be answered by
-# applying a simple rule from the Unicode database content. Setting
-# up a proper standard for the behavior of UTF-8 character terminals
-# will require a careful analysis not only of each Unicode character,
-# but also of each presentation form, something the author of these
-# routines has avoided to do so far.
-#
-# http://www.unicode.org/unicode/reports/tr11/
-#
-# Markus Kuhn -- 2007-05-26 (Unicode 5.0)
-#
-# Permission to use, copy, modify, and distribute this software
-# for any purpose and without fee is hereby granted. The author
-# disclaims all warranties with regard to this software.
-#
-# Latest C version: http://www.cl.cam.ac.uk/~mgk25/ucs/wcwidth.c
-
-# auxiliary function for binary search in interval table
-def bisearch(ucs, table):
-  min = 0
-  max = len(table) - 1
-  if ucs < table[0][0] or ucs > table[max][1]:
-    return 0
-  while max >= min:
-    mid = (min + max) / 2
-    if ucs > table[mid][1]:
-      min = mid + 1
-    elif ucs < table[mid][0]:
-      max = mid - 1
-    else:
-      return 1
-  return 0
-
-# The following two functions define the column width of an ISO 10646
-# character as follows:
-#
-#    - The null character (U+0000) has a column width of 0.
-#
-#    - Other C0/C1 control characters and DEL will lead to a return
-#      value of -1.
-#
-#    - Non-spacing and enclosing combining characters (general
-#      category code Mn or Me in the Unicode database) have a
-#      column width of 0.
-#
-#    - SOFT HYPHEN (U+00AD) has a column width of 1.
-#
-#    - Other format characters (general category code Cf in the Unicode
-#      database) and ZERO WIDTH SPACE (U+200B) have a column width of 0.
-#
-#    - Hangul Jamo medial vowels and final consonants (U+1160-U+11FF)
-#      have a column width of 0.
-#
-#    - Spacing characters in the East Asian Wide (W) or East Asian
-#      Full-width (F) category as defined in Unicode Technical
-#      Report #11 have a column width of 2.
-#
-#    - All remaining characters (including all printable
-#      ISO 8859-1 and WGL4 characters, Unicode control characters,
-#      etc.) have a column width of 1.
-#
-# This implementation assumes that wchar_t characters are encoded
-# in ISO 10646.
-
-# sorted list of non-overlapping intervals of non-spacing characters
-# generated by "uniset +cat=Me +cat=Mn +cat=Cf -00AD +1160-11FF +200B c"
-combining = (
-  ( 0x0300, 0x036F ), ( 0x0483, 0x0486 ), ( 0x0488, 0x0489 ),
-  ( 0x0591, 0x05BD ), ( 0x05BF, 0x05BF ), ( 0x05C1, 0x05C2 ),
-  ( 0x05C4, 0x05C5 ), ( 0x05C7, 0x05C7 ), ( 0x0600, 0x0603 ),
-  ( 0x0610, 0x0615 ), ( 0x064B, 0x065E ), ( 0x0670, 0x0670 ),
-  ( 0x06D6, 0x06E4 ), ( 0x06E7, 0x06E8 ), ( 0x06EA, 0x06ED ),
-  ( 0x070F, 0x070F ), ( 0x0711, 0x0711 ), ( 0x0730, 0x074A ),
-  ( 0x07A6, 0x07B0 ), ( 0x07EB, 0x07F3 ), ( 0x0901, 0x0902 ),
-  ( 0x093C, 0x093C ), ( 0x0941, 0x0948 ), ( 0x094D, 0x094D ),
-  ( 0x0951, 0x0954 ), ( 0x0962, 0x0963 ), ( 0x0981, 0x0981 ),
-  ( 0x09BC, 0x09BC ), ( 0x09C1, 0x09C4 ), ( 0x09CD, 0x09CD ),
-  ( 0x09E2, 0x09E3 ), ( 0x0A01, 0x0A02 ), ( 0x0A3C, 0x0A3C ),
-  ( 0x0A41, 0x0A42 ), ( 0x0A47, 0x0A48 ), ( 0x0A4B, 0x0A4D ),
-  ( 0x0A70, 0x0A71 ), ( 0x0A81, 0x0A82 ), ( 0x0ABC, 0x0ABC ),
-  ( 0x0AC1, 0x0AC5 ), ( 0x0AC7, 0x0AC8 ), ( 0x0ACD, 0x0ACD ),
-  ( 0x0AE2, 0x0AE3 ), ( 0x0B01, 0x0B01 ), ( 0x0B3C, 0x0B3C ),
-  ( 0x0B3F, 0x0B3F ), ( 0x0B41, 0x0B43 ), ( 0x0B4D, 0x0B4D ),
-  ( 0x0B56, 0x0B56 ), ( 0x0B82, 0x0B82 ), ( 0x0BC0, 0x0BC0 ),
-  ( 0x0BCD, 0x0BCD ), ( 0x0C3E, 0x0C40 ), ( 0x0C46, 0x0C48 ),
-  ( 0x0C4A, 0x0C4D ), ( 0x0C55, 0x0C56 ), ( 0x0CBC, 0x0CBC ),
-  ( 0x0CBF, 0x0CBF ), ( 0x0CC6, 0x0CC6 ), ( 0x0CCC, 0x0CCD ),
-  ( 0x0CE2, 0x0CE3 ), ( 0x0D41, 0x0D43 ), ( 0x0D4D, 0x0D4D ),
-  ( 0x0DCA, 0x0DCA ), ( 0x0DD2, 0x0DD4 ), ( 0x0DD6, 0x0DD6 ),
-  ( 0x0E31, 0x0E31 ), ( 0x0E34, 0x0E3A ), ( 0x0E47, 0x0E4E ),
-  ( 0x0EB1, 0x0EB1 ), ( 0x0EB4, 0x0EB9 ), ( 0x0EBB, 0x0EBC ),
-  ( 0x0EC8, 0x0ECD ), ( 0x0F18, 0x0F19 ), ( 0x0F35, 0x0F35 ),
-  ( 0x0F37, 0x0F37 ), ( 0x0F39, 0x0F39 ), ( 0x0F71, 0x0F7E ),
-  ( 0x0F80, 0x0F84 ), ( 0x0F86, 0x0F87 ), ( 0x0F90, 0x0F97 ),
-  ( 0x0F99, 0x0FBC ), ( 0x0FC6, 0x0FC6 ), ( 0x102D, 0x1030 ),
-  ( 0x1032, 0x1032 ), ( 0x1036, 0x1037 ), ( 0x1039, 0x1039 ),
-  ( 0x1058, 0x1059 ), ( 0x1160, 0x11FF ), ( 0x135F, 0x135F ),
-  ( 0x1712, 0x1714 ), ( 0x1732, 0x1734 ), ( 0x1752, 0x1753 ),
-  ( 0x1772, 0x1773 ), ( 0x17B4, 0x17B5 ), ( 0x17B7, 0x17BD ),
-  ( 0x17C6, 0x17C6 ), ( 0x17C9, 0x17D3 ), ( 0x17DD, 0x17DD ),
-  ( 0x180B, 0x180D ), ( 0x18A9, 0x18A9 ), ( 0x1920, 0x1922 ),
-  ( 0x1927, 0x1928 ), ( 0x1932, 0x1932 ), ( 0x1939, 0x193B ),
-  ( 0x1A17, 0x1A18 ), ( 0x1B00, 0x1B03 ), ( 0x1B34, 0x1B34 ),
-  ( 0x1B36, 0x1B3A ), ( 0x1B3C, 0x1B3C ), ( 0x1B42, 0x1B42 ),
-  ( 0x1B6B, 0x1B73 ), ( 0x1DC0, 0x1DCA ), ( 0x1DFE, 0x1DFF ),
-  ( 0x200B, 0x200F ), ( 0x202A, 0x202E ), ( 0x2060, 0x2063 ),
-  ( 0x206A, 0x206F ), ( 0x20D0, 0x20EF ), ( 0x302A, 0x302F ),
-  ( 0x3099, 0x309A ), ( 0xA806, 0xA806 ), ( 0xA80B, 0xA80B ),
-  ( 0xA825, 0xA826 ), ( 0xFB1E, 0xFB1E ), ( 0xFE00, 0xFE0F ),
-  ( 0xFE20, 0xFE23 ), ( 0xFEFF, 0xFEFF ), ( 0xFFF9, 0xFFFB ),
-  ( 0x10A01, 0x10A03 ), ( 0x10A05, 0x10A06 ), ( 0x10A0C, 0x10A0F ),
-  ( 0x10A38, 0x10A3A ), ( 0x10A3F, 0x10A3F ), ( 0x1D167, 0x1D169 ),
-  ( 0x1D173, 0x1D182 ), ( 0x1D185, 0x1D18B ), ( 0x1D1AA, 0x1D1AD ),
-  ( 0x1D242, 0x1D244 ), ( 0xE0001, 0xE0001 ), ( 0xE0020, 0xE007F ),
-  ( 0xE0100, 0xE01EF )
-)
-
-# sorted list of non-overlapping intervals of East Asian Ambiguous
-# characters, generated by "uniset +WIDTH-A -cat=Me -cat=Mn -cat=Cf c"
-ambiguous = (
-  ( 0x00A1, 0x00A1 ), ( 0x00A4, 0x00A4 ), ( 0x00A7, 0x00A8 ),
-  ( 0x00AA, 0x00AA ), ( 0x00AE, 0x00AE ), ( 0x00B0, 0x00B4 ),
-  ( 0x00B6, 0x00BA ), ( 0x00BC, 0x00BF ), ( 0x00C6, 0x00C6 ),
-  ( 0x00D0, 0x00D0 ), ( 0x00D7, 0x00D8 ), ( 0x00DE, 0x00E1 ),
-  ( 0x00E6, 0x00E6 ), ( 0x00E8, 0x00EA ), ( 0x00EC, 0x00ED ),
-  ( 0x00F0, 0x00F0 ), ( 0x00F2, 0x00F3 ), ( 0x00F7, 0x00FA ),
-  ( 0x00FC, 0x00FC ), ( 0x00FE, 0x00FE ), ( 0x0101, 0x0101 ),
-  ( 0x0111, 0x0111 ), ( 0x0113, 0x0113 ), ( 0x011B, 0x011B ),
-  ( 0x0126, 0x0127 ), ( 0x012B, 0x012B ), ( 0x0131, 0x0133 ),
-  ( 0x0138, 0x0138 ), ( 0x013F, 0x0142 ), ( 0x0144, 0x0144 ),
-  ( 0x0148, 0x014B ), ( 0x014D, 0x014D ), ( 0x0152, 0x0153 ),
-  ( 0x0166, 0x0167 ), ( 0x016B, 0x016B ), ( 0x01CE, 0x01CE ),
-  ( 0x01D0, 0x01D0 ), ( 0x01D2, 0x01D2 ), ( 0x01D4, 0x01D4 ),
-  ( 0x01D6, 0x01D6 ), ( 0x01D8, 0x01D8 ), ( 0x01DA, 0x01DA ),
-  ( 0x01DC, 0x01DC ), ( 0x0251, 0x0251 ), ( 0x0261, 0x0261 ),
-  ( 0x02C4, 0x02C4 ), ( 0x02C7, 0x02C7 ), ( 0x02C9, 0x02CB ),
-  ( 0x02CD, 0x02CD ), ( 0x02D0, 0x02D0 ), ( 0x02D8, 0x02DB ),
-  ( 0x02DD, 0x02DD ), ( 0x02DF, 0x02DF ), ( 0x0391, 0x03A1 ),
-  ( 0x03A3, 0x03A9 ), ( 0x03B1, 0x03C1 ), ( 0x03C3, 0x03C9 ),
-  ( 0x0401, 0x0401 ), ( 0x0410, 0x044F ), ( 0x0451, 0x0451 ),
-  ( 0x2010, 0x2010 ), ( 0x2013, 0x2016 ), ( 0x2018, 0x2019 ),
-  ( 0x201C, 0x201D ), ( 0x2020, 0x2022 ), ( 0x2024, 0x2027 ),
-  ( 0x2030, 0x2030 ), ( 0x2032, 0x2033 ), ( 0x2035, 0x2035 ),
-  ( 0x203B, 0x203B ), ( 0x203E, 0x203E ), ( 0x2074, 0x2074 ),
-  ( 0x207F, 0x207F ), ( 0x2081, 0x2084 ), ( 0x20AC, 0x20AC ),
-  ( 0x2103, 0x2103 ), ( 0x2105, 0x2105 ), ( 0x2109, 0x2109 ),
-  ( 0x2113, 0x2113 ), ( 0x2116, 0x2116 ), ( 0x2121, 0x2122 ),
-  ( 0x2126, 0x2126 ), ( 0x212B, 0x212B ), ( 0x2153, 0x2154 ),
-  ( 0x215B, 0x215E ), ( 0x2160, 0x216B ), ( 0x2170, 0x2179 ),
-  ( 0x2190, 0x2199 ), ( 0x21B8, 0x21B9 ), ( 0x21D2, 0x21D2 ),
-  ( 0x21D4, 0x21D4 ), ( 0x21E7, 0x21E7 ), ( 0x2200, 0x2200 ),
-  ( 0x2202, 0x2203 ), ( 0x2207, 0x2208 ), ( 0x220B, 0x220B ),
-  ( 0x220F, 0x220F ), ( 0x2211, 0x2211 ), ( 0x2215, 0x2215 ),
-  ( 0x221A, 0x221A ), ( 0x221D, 0x2220 ), ( 0x2223, 0x2223 ),
-  ( 0x2225, 0x2225 ), ( 0x2227, 0x222C ), ( 0x222E, 0x222E ),
-  ( 0x2234, 0x2237 ), ( 0x223C, 0x223D ), ( 0x2248, 0x2248 ),
-  ( 0x224C, 0x224C ), ( 0x2252, 0x2252 ), ( 0x2260, 0x2261 ),
-  ( 0x2264, 0x2267 ), ( 0x226A, 0x226B ), ( 0x226E, 0x226F ),
-  ( 0x2282, 0x2283 ), ( 0x2286, 0x2287 ), ( 0x2295, 0x2295 ),
-  ( 0x2299, 0x2299 ), ( 0x22A5, 0x22A5 ), ( 0x22BF, 0x22BF ),
-  ( 0x2312, 0x2312 ), ( 0x2460, 0x24E9 ), ( 0x24EB, 0x254B ),
-  ( 0x2550, 0x2573 ), ( 0x2580, 0x258F ), ( 0x2592, 0x2595 ),
-  ( 0x25A0, 0x25A1 ), ( 0x25A3, 0x25A9 ), ( 0x25B2, 0x25B3 ),
-  ( 0x25B6, 0x25B7 ), ( 0x25BC, 0x25BD ), ( 0x25C0, 0x25C1 ),
-  ( 0x25C6, 0x25C8 ), ( 0x25CB, 0x25CB ), ( 0x25CE, 0x25D1 ),
-  ( 0x25E2, 0x25E5 ), ( 0x25EF, 0x25EF ), ( 0x2605, 0x2606 ),
-  ( 0x2609, 0x2609 ), ( 0x260E, 0x260F ), ( 0x2614, 0x2615 ),
-  ( 0x261C, 0x261C ), ( 0x261E, 0x261E ), ( 0x2640, 0x2640 ),
-  ( 0x2642, 0x2642 ), ( 0x2660, 0x2661 ), ( 0x2663, 0x2665 ),
-  ( 0x2667, 0x266A ), ( 0x266C, 0x266D ), ( 0x266F, 0x266F ),
-  ( 0x273D, 0x273D ), ( 0x2776, 0x277F ), ( 0xE000, 0xF8FF ),
-  ( 0xFFFD, 0xFFFD ), ( 0xF0000, 0xFFFFD ), ( 0x100000, 0x10FFFD )
-)
-
-def mk_wcwidth(ucs):
-  # test for 8-bit control characters
-  if ucs == 0:
-    return 0
-  if ucs < 32 or (ucs >= 0x7f and ucs < 0xa0):
-    return -1
-
-  # binary search in table of non-spacing characters
-  if bisearch(ucs, combining):
-    return 0
-
-  # if we arrive here, ucs is not a combining or C0/C1 control character
-
-  return 1 + \
-    int(ucs >= 0x1100 and
-        (ucs <= 0x115f or                     # Hangul Jamo init. consonants
-         ucs == 0x2329 or ucs == 0x232a or
-         (ucs >= 0x2e80 and ucs <= 0xa4cf and
-          ucs != 0x303f) or                   # CJK ... Yi
-         (ucs >= 0xac00 and ucs <= 0xd7a3) or # Hangul Syllables
-         (ucs >= 0xf900 and ucs <= 0xfaff) or # CJK Compatibility Ideographs
-         (ucs >= 0xfe10 and ucs <= 0xfe19) or # Vertical forms
-         (ucs >= 0xfe30 and ucs <= 0xfe6f) or # CJK Compatibility Forms
-         (ucs >= 0xff00 and ucs <= 0xff60) or # Fullwidth Forms
-         (ucs >= 0xffe0 and ucs <= 0xffe6) or
-         (ucs >= 0x20000 and ucs <= 0x2fffd) or
-         (ucs >= 0x30000 and ucs <= 0x3fffd)))
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# ***** END LICENSE BLOCK *****
 
 
-def mk_wcswidth(pwcs):
-  width = 0
-  for c in pwcs:
-    w = mk_wcwidth(c)
-    if w < 0:
-      return -1
-    else:
-      width += w
-
-  return width
+import re
+pattern1 = re.compile(u'^[\u1100-\u115f\u2329\u232a\u2e80-\u2e99\u2e9b-\u2ef3\u2f00-\u2fd5\u2ff0-\u2ffb\u3000-\u3029\u302e-\u303e\u3041-\u3096\u309b-\u30ff\u3105-\u312d\u3131-\u318e\u3190-\u31ba\u31c0-\u31e3\u31f0-\u321e\u3220-\u3247\u3250-\u32fe\u3300-\u4dbf\u4e00-\ua48c\ua490-\ua4c6\ua960-\ua97c\uf900-\ufa6d\ufa70-\ufad9\ufe10-\ufe19\ufe30-\ufe52\ufe54-\ufe66\ufe68-\ufe6b\uff01-\uff60\uffe0-\uffe6\uac00-\ud7a3\ufa6e\ufa6f\ufada]$')
+pattern2 = re.compile(u'^[\u0000\u0300-\u036f\u0483-\u0489\u0591-\u05bd\u05bf\u05c1\u05c2\u05c4\u05c5\u05c7\u0600-\u0604\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06dd\u06df-\u06e4\u06e7\u06e8\u06ea-\u06ed\u070f\u0711\u0730-\u074a\u07a6-\u07b0\u07eb-\u07f3\u0816-\u0819\u081b-\u0823\u0825-\u0827\u0829-\u082d\u0859-\u085b\u08e4-\u08fe\u0900-\u0902\u093a\u093c\u0941-\u0948\u094d\u0951-\u0957\u0962\u0963\u0981\u09bc\u09c1-\u09c4\u09cd\u09e2\u09e3\u0a01\u0a02\u0a3c\u0a41\u0a42\u0a47\u0a48\u0a4b-\u0a4d\u0a51\u0a70\u0a71\u0a75\u0a81\u0a82\u0abc\u0ac1-\u0ac5\u0ac7\u0ac8\u0acd\u0ae2\u0ae3\u0b01\u0b3c\u0b3f\u0b41-\u0b44\u0b4d\u0b56\u0b62\u0b63\u0b82\u0bc0\u0bcd\u0c3e-\u0c40\u0c46-\u0c48\u0c4a-\u0c4d\u0c55\u0c56\u0c62\u0c63\u0cbc\u0cbf\u0cc6\u0ccc\u0ccd\u0ce2\u0ce3\u0d41-\u0d44\u0d4d\u0d62\u0d63\u0dca\u0dd2-\u0dd4\u0dd6\u0e31\u0e34-\u0e3a\u0e47-\u0e4e\u0eb1\u0eb4-\u0eb9\u0ebb\u0ebc\u0ec8-\u0ecd\u0f18\u0f19\u0f35\u0f37\u0f39\u0f71-\u0f7e\u0f80-\u0f84\u0f86\u0f87\u0f8d-\u0f97\u0f99-\u0fbc\u0fc6\u102d-\u1030\u1032-\u1037\u1039\u103a\u103d\u103e\u1058\u1059\u105e-\u1060\u1071-\u1074\u1082\u1085\u1086\u108d\u109d\u135d-\u135f\u1712-\u1714\u1732-\u1734\u1752\u1753\u1772\u1773\u17b4\u17b5\u17b7-\u17bd\u17c6\u17c9-\u17d3\u17dd\u180b-\u180d\u18a9\u1920-\u1922\u1927\u1928\u1932\u1939-\u193b\u1a17\u1a18\u1a56\u1a58-\u1a5e\u1a60\u1a62\u1a65-\u1a6c\u1a73-\u1a7c\u1a7f\u1b00-\u1b03\u1b34\u1b36-\u1b3a\u1b3c\u1b42\u1b6b-\u1b73\u1b80\u1b81\u1ba2-\u1ba5\u1ba8\u1ba9\u1bab\u1be6\u1be8\u1be9\u1bed\u1bef-\u1bf1\u1c2c-\u1c33\u1c36\u1c37\u1cd0-\u1cd2\u1cd4-\u1ce0\u1ce2-\u1ce8\u1ced\u1cf4\u1dc0-\u1de6\u1dfc-\u1dff\u200b-\u200f\u202a-\u202e\u2060-\u2064\u206a-\u206f\u20d0-\u20f0\u2cef-\u2cf1\u2d7f\u2de0-\u2dff\u302a-\u302d\u3099\u309a\ua66f-\ua672\ua674-\ua67d\ua69f\ua6f0\ua6f1\ua802\ua806\ua80b\ua825\ua826\ua8c4\ua8e0-\ua8f1\ua926-\ua92d\ua947-\ua951\ua980-\ua982\ua9b3\ua9b6-\ua9b9\ua9bc\uaa29-\uaa2e\uaa31\uaa32\uaa35\uaa36\uaa43\uaa4c\uaab0\uaab2-\uaab4\uaab7\uaab8\uaabe\uaabf\uaac1\uaaec\uaaed\uaaf6\uabe5\uabe8\uabed\ufb1e\ufe00-\ufe0f\ufe20-\ufe26\ufeff\ufff9]$')
+pattern3 = re.compile(u'^[\u00a1\u00a4\u00a7\u00a8\u00aa\u00ad\u00ae\u00b0-\u00b4\u00b6-\u00ba\u00bc-\u00bf\u00c6\u00d0\u00d7\u00d8\u00de-\u00e1\u00e6\u00e8-\u00ea\u00ec\u00ed\u00f0\u00f2\u00f3\u00f7-\u00fa\u00fc\u00fe\u0101\u0111\u0113\u011b\u0126\u0127\u012b\u0131-\u0133\u0138\u013f-\u0142\u0144\u0148-\u014b\u014d\u0152\u0153\u0166\u0167\u016b\u01ce\u01d0\u01d2\u01d4\u01d6\u01d8\u01da\u01dc\u0251\u0261\u02c4\u02c7\u02c9-\u02cb\u02cd\u02d0\u02d8-\u02db\u02dd\u02df\u0391-\u03a1\u03a3-\u03a9\u03b1-\u03c1\u03c3-\u03c9\u0401\u0410-\u044f\u0451\u1100-\u115f\u2010\u2013-\u2016\u2018\u2019\u201c\u201d\u2020-\u2022\u2024-\u2027\u2030\u2032\u2033\u2035\u203b\u203e\u2074\u207f\u2081-\u2084\u20ac\u2103\u2105\u2109\u2113\u2116\u2121\u2122\u2126\u212b\u2153\u2154\u215b-\u215e\u2160-\u216b\u2170-\u2179\u2189\u2190-\u2199\u21b8\u21b9\u21d2\u21d4\u21e7\u2200\u2202\u2203\u2207\u2208\u220b\u220f\u2211\u2215\u221a\u221d-\u2220\u2223\u2225\u2227-\u222c\u222e\u2234-\u2237\u223c\u223d\u2248\u224c\u2252\u2260\u2261\u2264-\u2267\u226a\u226b\u226e\u226f\u2282\u2283\u2286\u2287\u2295\u2299\u22a5\u22bf\u2312\u2329\u232a\u2460-\u24e9\u24eb-\u254b\u2550-\u2573\u2580-\u258f\u2592-\u2595\u25a0\u25a1\u25a3-\u25a9\u25b2\u25b3\u25b6\u25b7\u25bc\u25bd\u25c0\u25c1\u25c6-\u25c8\u25cb\u25ce-\u25d1\u25e2-\u25e5\u25ef\u2605\u2606\u2609\u260e\u260f\u2614\u2615\u261c\u261e\u2640\u2642\u2660\u2661\u2663-\u2665\u2667-\u266a\u266c\u266d\u266f\u269e\u269f\u26be\u26bf\u26c4-\u26cd\u26cf-\u26e1\u26e3\u26e8-\u26ff\u273d\u2757\u2776-\u277f\u2b55-\u2b59\u2e80-\u2e99\u2e9b-\u2ef3\u2f00-\u2fd5\u2ff0-\u2ffb\u3000-\u3029\u302e-\u303e\u3041-\u3096\u309b-\u30ff\u3105-\u312d\u3131-\u318e\u3190-\u31ba\u31c0-\u31e3\u31f0-\u321e\u3220-\u32fe\u3300-\u4dbf\u4e00-\ua48c\ua490-\ua4c6\ua960-\ua97c\uf900-\ufa6d\ufa70-\ufad9\ufe10-\ufe19\ufe30-\ufe52\ufe54-\ufe66\ufe68-\ufe6b\uff01-\uff60\uffe0-\uffe6\ufffd\uac00-\ud7a3\ue000-\uf8ff\ufa6e\ufa6f\ufada]$')
+pattern4 = re.compile(u'^[\u0000\u0300-\u036f\u0483-\u0489\u0591-\u05bd\u05bf\u05c1\u05c2\u05c4\u05c5\u05c7\u0600-\u0604\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06dd\u06df-\u06e4\u06e7\u06e8\u06ea-\u06ed\u070f\u0711\u0730-\u074a\u07a6-\u07b0\u07eb-\u07f3\u0816-\u0819\u081b-\u0823\u0825-\u0827\u0829-\u082d\u0859-\u085b\u08e4-\u08fe\u0900-\u0902\u093a\u093c\u0941-\u0948\u094d\u0951-\u0957\u0962\u0963\u0981\u09bc\u09c1-\u09c4\u09cd\u09e2\u09e3\u0a01\u0a02\u0a3c\u0a41\u0a42\u0a47\u0a48\u0a4b-\u0a4d\u0a51\u0a70\u0a71\u0a75\u0a81\u0a82\u0abc\u0ac1-\u0ac5\u0ac7\u0ac8\u0acd\u0ae2\u0ae3\u0b01\u0b3c\u0b3f\u0b41-\u0b44\u0b4d\u0b56\u0b62\u0b63\u0b82\u0bc0\u0bcd\u0c3e-\u0c40\u0c46-\u0c48\u0c4a-\u0c4d\u0c55\u0c56\u0c62\u0c63\u0cbc\u0cbf\u0cc6\u0ccc\u0ccd\u0ce2\u0ce3\u0d41-\u0d44\u0d4d\u0d62\u0d63\u0dca\u0dd2-\u0dd4\u0dd6\u0e31\u0e34-\u0e3a\u0e47-\u0e4e\u0eb1\u0eb4-\u0eb9\u0ebb\u0ebc\u0ec8-\u0ecd\u0f18\u0f19\u0f35\u0f37\u0f39\u0f71-\u0f7e\u0f80-\u0f84\u0f86\u0f87\u0f8d-\u0f97\u0f99-\u0fbc\u0fc6\u102d-\u1030\u1032-\u1037\u1039\u103a\u103d\u103e\u1058\u1059\u105e-\u1060\u1071-\u1074\u1082\u1085\u1086\u108d\u109d\u135d-\u135f\u1712-\u1714\u1732-\u1734\u1752\u1753\u1772\u1773\u17b4\u17b5\u17b7-\u17bd\u17c6\u17c9-\u17d3\u17dd\u180b-\u180d\u18a9\u1920-\u1922\u1927\u1928\u1932\u1939-\u193b\u1a17\u1a18\u1a56\u1a58-\u1a5e\u1a60\u1a62\u1a65-\u1a6c\u1a73-\u1a7c\u1a7f\u1b00-\u1b03\u1b34\u1b36-\u1b3a\u1b3c\u1b42\u1b6b-\u1b73\u1b80\u1b81\u1ba2-\u1ba5\u1ba8\u1ba9\u1bab\u1be6\u1be8\u1be9\u1bed\u1bef-\u1bf1\u1c2c-\u1c33\u1c36\u1c37\u1cd0-\u1cd2\u1cd4-\u1ce0\u1ce2-\u1ce8\u1ced\u1cf4\u1dc0-\u1de6\u1dfc-\u1dff\u200b-\u200f\u202a-\u202e\u2060-\u2064\u206a-\u206f\u20d0-\u20f0\u2cef-\u2cf1\u2d7f\u2de0-\u2dff\u302a-\u302d\u3099\u309a\ua66f-\ua672\ua674-\ua67d\ua69f\ua6f0\ua6f1\ua802\ua806\ua80b\ua825\ua826\ua8c4\ua8e0-\ua8f1\ua926-\ua92d\ua947-\ua951\ua980-\ua982\ua9b3\ua9b6-\ua9b9\ua9bc\uaa29-\uaa2e\uaa31\uaa32\uaa35\uaa36\uaa43\uaa4c\uaab0\uaab2-\uaab4\uaab7\uaab8\uaabe\uaabf\uaac1\uaaec\uaaed\uaaf6\uabe5\uabe8\uabed\ufb1e\ufe00-\ufe0f\ufe20-\ufe26\ufeff\ufff9]$')
 
 
-# The following functions are the same as mk_wcwidth() and
-# mk_wcswidth(), except that spacing characters in the East Asian
-# Ambiguous (A) category as defined in Unicode Technical Report #11
-# have a column width of 2. This variant might be useful for users of
-# CJK legacy encodings who want to migrate to UCS without changing
-# the traditional terminal character-width behaviour. It is not
-# otherwise recommended for general use.
-def mk_wcwidth_cjk(ucs):
-  # binary search in table of non-spacing characters
-  if bisearch(ucs, ambiguous):
+def mk_wcwidth(c):
+    if c < 0x10000:
+        s = unichr(c)
+        if pattern1.match(s):
+            return 2
+        elif pattern2.match(s):
+            return 0
+        return 1
+    elif c < 0x1F200:
+        return 1
+    elif c < 0x1F300:
+        return 2
+    elif c < 0x20000:
+        return 1
+    elif c < 0xE0000:
+        return 2
+    return 1
+
+
+def mk_wcwidth_cjk(c):
+    if c < 0x10000:
+        s = unichr(c)
+        if pattern3.match(s):
+            return 2
+        elif pattern4.match(s):
+            return 0
+        return 1
+    elif c < 0x1F100:
+        return 1
+    elif c < 0x1F1A0:
+        if c == 0x1F12E:
+            return 1
+        elif c == 0x1F16A:
+            return 1
+        elif c == 0x1F16B:
+            return 1
+        return 2
+    elif c < 0x1F200:
+        return 1
+    elif c < 0x1F300:
+        return 2
+    elif c < 0x20000:
+        return 1
     return 2
 
-  return mk_wcwidth(ucs)
+
+def wcwidth(s):
+    return mk_wcwidth(ord(s))
 
 
-def mk_wcswidth_cjk(pwcs):
-  width = 0
+def wcwidth_cjk(s):
+    return mk_wcwidth_cjk(ord(s))
 
-  for c in pwcs:
-    w = mk_wcwidth_cjk(c)
-    if w < 0:
-      return -1
-    width += w
 
-  return width
+def wcswidth(run):
+    n = 0
+    for s in run:
+        n += mk_wcwidth(ord(s))
+    return n
 
-# python-y versions, dealing with unicode objects
-def wcwidth(c):
-    return mk_wcwidth(ord(c))
 
-def wcswidth(s):
-    return mk_wcswidth(map(ord, s))
-
-def wcwidth_cjk(c):
-    return mk_wcwidth_cjk(ord(c))
-
-def wcswidth_cjk(s):
-    return mk_wcswidth_cjk(map(ord, s))
-
-if __name__ == "__main__":
-    samples = (
-        ('MUSIC SHARP SIGN', 1),
-        ('FULLWIDTH POUND SIGN', 2),
-        ('FULLWIDTH LATIN CAPITAL LETTER P', 2),
-        ('CJK RADICAL BOLT OF CLOTH', 2),
-        ('LATIN SMALL LETTER A', 1),
-        ('LATIN SMALL LETTER AE', 1),
-        ('SPACE', 1),
-        ('NO-BREAK SPACE', 1),
-        ('CJK COMPATIBILITY IDEOGRAPH-F920', 2),
-        ('MALAYALAM VOWEL SIGN UU', 0),
-        ('ZERO WIDTH SPACE', 0),
-        ('ZERO WIDTH NO-BREAK SPACE', 0),
-        ('COMBINING PALATALIZED HOOK BELOW', 0),
-        ('COMBINING GRAVE ACCENT', 0),
-    )
-    nonprinting = u'\r\n\t\a\b\f\v\x7f'
-
-    import unicodedata
-
-    for name, printwidth in samples:
-        uchr = unicodedata.lookup(name)
-        calculatedwidth = wcwidth(uchr)
-        assert calculatedwidth == printwidth, \
-                'width for %r should be %d, but is %d?' % (uchr, printwidth, calculatedwidth)
-
-    for c in nonprinting:
-        calculatedwidth = wcwidth(c)
-        assert calculatedwidth < 0, \
-                '%r is a control character, but wcwidth gives %d' % (c, calculatedwidth)
-
-    assert wcwidth('\0') == 0  # special case
-
-    # depending on how python is compiled, code points above U+FFFF may not be
-    # treated as single characters, so ord() won't work. test a few of these
-    # manually.
-
-    assert mk_wcwidth(0xe01ef) == 0
-    assert mk_wcwidth(0x10ffff) == 1
-    assert mk_wcwidth(0x3fffd) == 2
-
-    teststr = u'B\0ig br\u00f8wn moose\ub143\u200b'
-    calculatedwidth = wcswidth(teststr)
-    assert calculatedwidth == 17, 'expected 17, got %d' % calculatedwidth
-
-    calculatedwidth = wcswidth_cjk(teststr)
-    assert calculatedwidth == 18, 'expected 18, got %d' % calculatedwidth
-
-    assert wcswidth(u'foobar\u200b\a') < 0
-
-    print 'tests pass.'
+def wcswidth_cjk(run):
+    n = 0
+    for s in run:
+        n += mk_wcwidth_cjk(ord(s))
+    return n

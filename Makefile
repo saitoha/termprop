@@ -7,13 +7,13 @@ all: test
 	python2.6 setup.py bdist_egg
 	python2.7 setup.py bdist_egg
 
-install: test 
+install: test
 	$(PYTHON) -c "import setuptools" || curl http://peak.telecommunity.com/dist/ez_setup.py | python
 	$(PYTHON) setup.py install
 
 uninstall:
-	yes | pip uninstall $(PACKAGE_NAME) 
-	
+	yes | pip uninstall $(PACKAGE_NAME)
+
 clean:
 	rm -rf dist/ build/ *.egg-info *.pyc **/*.pyc
 
