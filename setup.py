@@ -2,10 +2,12 @@
 
 from setuptools import setup, find_packages
 from termprop import __version__, __license__, __author__
-import inspect, os
+import inspect
+import os
 
 filename = inspect.getfile(inspect.currentframe())
-dirpath = os.path.abspath(os.path.dirname(inspect.getfile(inspect.currentframe())))
+dirpath = os.path.abspath(os.path.dirname(filename))
+readme = open(os.path.join('README.rst')).read()
 
 import termprop
 termprop.test()
@@ -13,7 +15,7 @@ termprop.test()
 setup(name                  = 'termprop',
       version               = __version__,
       description           = 'detects some terminal glitches and advanced facilities information',
-      long_description      = open(dirpath + "/README.rst").read(),
+      long_description      = readme,
       py_modules            = ['termprop'],
       eager_resources       = [],
       classifiers           = ['Development Status :: 4 - Beta',
@@ -28,7 +30,7 @@ setup(name                  = 'termprop',
       author_email          = 'user@zuse.jp',
       url                   = 'https://github.com/saitoha/termprop',
       license               = __license__,
-      packages              = find_packages(exclude=[]),
+      packages              = find_packages(exclude=['test']),
       zip_safe              = True,
       include_package_data  = False,
       install_requires      = [],
@@ -37,4 +39,3 @@ setup(name                  = 'termprop',
                               termprop = termprop:main
                               """
       )
-
