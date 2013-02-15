@@ -25,5 +25,9 @@ __license__ = "GPL v3"
 from termprop import Termprop
 
 
-def main():
+def test():
     Termprop().test()
+
+
+def main():
+    test()
