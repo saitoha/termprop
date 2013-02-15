@@ -72,6 +72,35 @@ def mk_wcwidth_cjk(c):
     return 2
 
 
+def generate_ucs4_codepoints(run):
+    c1 = None
+    for s in run:
+        c = ord(s)
+        if c < 0xd800:
+            yield c
+        elif c < 0xdc00:
+            c1 = (c - 0xd800) << 10
+        elif c < 0xe000 and c1:
+            yield c1 | (c - 0xdc00)
+            c1 = None
+        else:
+            yield c
+
+
+def mk_wcswidth(run):
+    n = 0
+    for c in generate_ucs4_codepoints(run):
+        n += mk_wcwidth(c)
+    return n
+
+
+def mk_wcswidth_cjk(run):
+    n = 0
+    for c in generate_ucs4_codepoints(run):
+        n += mk_wcwidth_cjk(c)
+    return n
+
+
 def wcwidth(s):
     return mk_wcwidth(ord(s))
 
@@ -82,13 +111,13 @@ def wcwidth_cjk(s):
 
 def wcswidth(run):
     n = 0
-    for s in run:
-        n += mk_wcwidth(ord(s))
+    for c in generate_ucs4_codepoints(run):
+        n += mk_wcwidth(c)
     return n
 
 
 def wcswidth_cjk(run):
     n = 0
-    for s in run:
-        n += mk_wcwidth_cjk(ord(s))
+    for c in generate_ucs4_codepoints(run):
+        n += mk_wcwidth_cjk(c)
     return n
