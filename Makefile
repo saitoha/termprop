@@ -2,6 +2,8 @@
 PACKAGE_NAME=termprop
 PYTHON=python
 
+.PHONY: test clean install uninstall
+
 all: test
 	$(PYTHON) setup.py sdist
 	python2.6 setup.py bdist_egg

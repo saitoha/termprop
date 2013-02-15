@@ -10,7 +10,6 @@ dirpath = os.path.abspath(os.path.dirname(filename))
 readme = open(os.path.join('README.rst')).read()
 
 import termprop
-print termprop
 termprop.test()
 
 setup(name                  = 'termprop',
