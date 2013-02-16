@@ -88,8 +88,8 @@ while (<IN>) {
         next;
     }
     if ($_ =~ /^([0-9A-F]{4});[^;]*;(Mn|Me|Cf)/
-     || $_ =~ /^11[6-9A-F][0-9A-F];/
-     || $_ =~ /^200B;/ )
+     || $_ =~ /^(11[6-9A-F][0-9A-F]);/
+     || $_ =~ /^(200B);/ )
     {
         $wcmap1{$1} = 0;
         $wcmap2{$1} = 0;
@@ -166,19 +166,40 @@ print <<EOF;
 
 
 import re
-pattern1 = re.compile(u'^[@{[print_characters 2, %wcmap1]}]\$')
-pattern2 = re.compile(u'^[@{[print_characters 0, %wcmap1]}]\$')
-pattern3 = re.compile(u'^[@{[print_characters 2, %wcmap2]}]\$')
-pattern4 = re.compile(u'^[@{[print_characters 0, %wcmap2]}]\$')
+_pattern1 = re.compile(u'^[@{[print_characters 2, %wcmap1]}]\$')
+_pattern2 = re.compile(u'^[@{[print_characters 0, %wcmap1]}]\$')
+_pattern3 = re.compile(u'^[@{[print_characters 2, %wcmap2]}]\$')
+_pattern4 = re.compile(u'^[@{[print_characters 0, %wcmap2]}]\$')
 
 
-def mk_wcwidth(c):
-    if c < 0x10000:
+def _generate_ucs4_codepoints(run):
+    c1 = None
+    for s in run:
+        c = ord(s)
+        if c < 0xd800:
+            yield c
+        elif c < 0xdc00:
+            c1 = (c - 0xd800) << 10
+        elif c < 0xe000 and c1:
+            yield c1 | (c - 0xdc00)
+            c1 = None
+        else:
+            yield c
+
+
+def wcwidth(c):
+    if c < 0x20:
+        return -1
+    elif c < 0x7f:
+        return 1
+    elif c < 0xa0:
+        return -1
+    elif c < 0x10000:
         s = unichr(c)
-        if pattern1.match(s):
-            return 2
-        elif pattern2.match(s):
+        if _pattern2.match(s):
             return 0
+        elif _pattern1.match(s):
+            return 2
         return 1
     elif c < 0x1F200:
         return 1
@@ -191,13 +212,19 @@ def mk_wcwidth(c):
     return 1
 
 
-def mk_wcwidth_cjk(c):
-    if c < 0x10000:
+def wcwidth_cjk(c):
+    if c < 0x20:
+        return -1
+    elif c < 0x7f:
+        return 1
+    elif c < 0xa0:
+        return -1
+    elif c < 0x10000:
         s = unichr(c)
-        if pattern3.match(s):
-            return 2
-        elif pattern4.match(s):
+        if _pattern4.match(s):
             return 0
+        elif _pattern3.match(s):
+            return 2
         return 1
     elif c < 0x1F100:
         return 1
@@ -218,24 +245,22 @@ def mk_wcwidth_cjk(c):
     return 2
 
 
-def wcwidth(s):
-    return mk_wcwidth(ord(s))
-
-
-def wcwidth_cjk(s):
-    return mk_wcwidth_cjk(ord(s))
-
-
 def wcswidth(run):
     n = 0
-    for s in run:
-        n += mk_wcwidth(ord(s))
+    for c in _generate_ucs4_codepoints(run):
+        width = wcwidth(c)
+        if width == -1:
+            return -1
+        c += width
     return n
 
 
 def wcswidth_cjk(run):
     n = 0
-    for s in run:
-        n += mk_wcwidth_cjk(ord(s))
+    for c in _generate_ucs4_codepoints(run):
+        width = wcwidth_cjk(c)
+        if width == -1:
+            return -1
+        c += width
     return n
 EOF

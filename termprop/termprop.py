@@ -267,23 +267,19 @@ class Termprop:
         self.is_cjk = True
         self.wcwidth = ww.wcwidth_cjk
         self.wcswidth = ww.wcswidth_cjk
-        self.mk_wcwidth = ww.mk_wcwidth_cjk
-        self.mk_wcswidth = ww.mk_wcswidth_cjk
 
     def set_noncjk(self):
         self.is_cjk = False
         self.wcwidth = ww.wcwidth
         self.wcswidth = ww.wcswidth
-        self.mk_wcwidth = ww.mk_wcwidth
-        self.mk_wcswidth = ww.mk_wcswidth
 
     def wcwidth(self, c):
-        _wcwidth = self.mk_wcwidth
+        _wcwidth = self.wcwidth
         return _wcwidth(c)
 
     def wcswidth(self, s):
-        _wcswidth = self.mk_wcswidth
-        return _wcswidth(map(ord, s))
+        _wcswidth = self.wcswidth
+        return _wcswidth(s)
 
     def getyx(self):
         self._setupterm()
@@ -321,6 +317,84 @@ class Termprop:
             if self.__count == 0:
                 termios.tcsetattr(0, termios.TCSADRAIN, self.__oldtermios)
                 self.__oldtermios = None
+
+    def measurewidth(self, c):
+        sys.stdout.write(u"\x1b[1;1H" + unichr(c))
+        y, x = self.getyx()
+        return x - 1
+
+    def makefullwidthtable(self, start, end):
+        table = [-1] * 0x1f
+        self._setupterm()
+        try:
+            #for c in xrange(0, 0x200000):
+            for c in xrange(start, end):
+                sys.stdout.write(u"\x0d" + unichr(c))
+                pos = _getcpr()
+                if pos is None:
+                    raise Exception("cpr failed")
+                y, x = pos
+                if self.cpr_off_by_one_glitch:
+                    width = x + 1 - 1
+                else:
+                    width = x - 1
+                table.append(width)
+        finally:
+            self._cleanupterm()
+        table.append(-1)
+        return table
+
+    def makecombiningwidthtable(self, start, end):
+        table = [-1] * 0x1f
+        self._setupterm()
+        try:
+            #for c in xrange(0, 0x200000):
+            for c in xrange(start, end):
+                sys.stdout.write(u"\x0da" + unichr(c))
+                pos = _getcpr()
+                if pos is None:
+                    raise Exception("cpr failed")
+                y, x = pos
+                if self.cpr_off_by_one_glitch:
+                    width = x + 1 - 2
+                else:
+                    width = x - 2
+                table.append(width)
+        finally:
+            self._cleanupterm()
+        table.append(-1)
+        return table
+
+    def makepattern(self):
+        table = self.makecombiningwidthtable(0x2ff0, 0x3040)
+        start = -1
+        ranges = {}
+        for c, width in xrange(0, len(table)):
+            if start != -1 and width != 0:
+                if start == c - 1:
+                    ranges.append("\U%08x" % start)
+                else:
+                    ranges.append("\U%08x-\U%08x" % (start, c - 1))
+                start = -1
+            elif start == -1 and width == 0:
+                start = c
+        combining_pattern = "/^[" + "".join(ranges) + "]$/"
+
+        table = self.makefullwidthtable(0x0300, 0x3ff)
+        start = -1
+        ranges = {}
+        for c, width in xrange(0, len(table)):
+            width = table[c]
+            if start != -1 and width != 2:
+                if start == c - 1:
+                    ranges.append("\U%08x" % start)
+                else:
+                    ranges.append("\U%08x-\U%08x" % (start, c - 1))
+                start = -1
+            elif start == -1 and width == 2:
+                start = c
+        fullwidth_pattern = "/^[" + "".join(ranges) + "]$/"
+        print "combining_pattern=re.combile(u'%s')\nfullwidth_pattern=re.combile(u'%s')\n" % (combining_pattern, fullwidth_pattern)
 
     def test(self):
         print "has_cpr: %s" % self.has_cpr
