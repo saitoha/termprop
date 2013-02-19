@@ -143,6 +143,47 @@ sub print_characters {
     }
     return join "", @results;
 }
+my $header = <<EOF;
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# ***** BEGIN LICENSE BLOCK *****
+# Copyright (C) 2012-2013  Hayaki Saito <user\@zuse.jp>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# ***** END LICENSE BLOCK *****
+EOF
+
+open(DB, ">", "db/unicode6_2/normal.py") or die;
+print DB <<EOF;
+$header
+import re
+pattern_fullwidth = re.compile(u'^[@{[print_characters 2, %wcmap1]}]\$')
+pattern_combining = re.compile(u'^[@{[print_characters 0, %wcmap1]}]\$')
+EOF
+close(DB);
+
+open(DB, ">", "db/unicode6_2/cjk.py") or die;
+print DB <<EOF;
+$header
+import re
+pattern_fullwidth = re.compile(u'^[@{[print_characters 2, %wcmap2]}]\$')
+pattern_combining = re.compile(u'^[@{[print_characters 0, %wcmap2]}]\$')
+EOF
+close(DB);
+
+
 print <<EOF;
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
@@ -165,11 +206,12 @@ print <<EOF;
 # ***** END LICENSE BLOCK *****
 
 
-import re
-_pattern1 = re.compile(u'^[@{[print_characters 2, %wcmap1]}]\$')
-_pattern2 = re.compile(u'^[@{[print_characters 0, %wcmap1]}]\$')
-_pattern3 = re.compile(u'^[@{[print_characters 2, %wcmap2]}]\$')
-_pattern4 = re.compile(u'^[@{[print_characters 0, %wcmap2]}]\$')
+import db.unicode6_2.normal
+import db.unicode6_2.cjk
+_normal_pattern_fullwidth = db.unicode6_2.normal.pattern_fullwidth
+_normal_pattern_combining = db.unicode6_2.normal.pattern_combining
+_cjk_pattern_fullwidth = db.unicode6_2.cjk.pattern_fullwidth
+_cjk_pattern_combining = db.unicode6_2.cjk.pattern_combining
 
 
 def _generate_ucs4_codepoints(run):
@@ -196,14 +238,14 @@ def wcwidth(c):
         return -1
     elif c < 0x10000:
         s = unichr(c)
-        if _pattern2.match(s):
+        if _normal_pattern_combining.match(s):
             return 0
-        elif _pattern1.match(s):
+        elif _normal_pattern_fullwidth.match(s):
             return 2
         return 1
-    elif c < 0x1F200:
-        return 1
     elif c < 0x1F300:
+        if c < 0x1F200:
+            return 1
         return 2
     elif c < 0x20000:
         return 1
@@ -221,9 +263,9 @@ def wcwidth_cjk(c):
         return -1
     elif c < 0x10000:
         s = unichr(c)
-        if _pattern4.match(s):
+        if _cjk_pattern_combining.match(s):
             return 0
-        elif _pattern3.match(s):
+        elif _cjk_pattern_fullwidth.match(s):
             return 2
         return 1
     elif c < 0x1F100:
@@ -236,9 +278,9 @@ def wcwidth_cjk(c):
         elif c == 0x1F16B:
             return 1
         return 2
-    elif c < 0x1F200:
-        return 1
     elif c < 0x1F300:
+        if c < 0x1F200:
+            return 1
         return 2
     elif c < 0x20000:
         return 1

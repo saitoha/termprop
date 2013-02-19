@@ -318,17 +318,14 @@ class Termprop:
                 termios.tcsetattr(0, termios.TCSADRAIN, self.__oldtermios)
                 self.__oldtermios = None
 
-    def measurewidth(self, c):
-        sys.stdout.write(u"\x1b[1;1H" + unichr(c))
-        y, x = self.getyx()
-        return x - 1
-
-    def makefullwidthtable(self, start, end):
-        table = [-1] * 0x1f
+    def makepattern(self):
         self._setupterm()
         try:
-            #for c in xrange(0, 0x200000):
-            for c in xrange(start, end):
+            first = 0x020
+            end = 0x10000
+            table = [-1] * (first - 1) + [1] * (end - first) + [-1]
+            for c in xrange(first, end):
+
                 sys.stdout.write(u"\x0d" + unichr(c))
                 pos = _getcpr()
                 if pos is None:
@@ -338,63 +335,81 @@ class Termprop:
                     width = x + 1 - 1
                 else:
                     width = x - 1
-                table.append(width)
-        finally:
-            self._cleanupterm()
-        table.append(-1)
-        return table
+                if width == 0:
+                    table[c] = -1
+                    continue
 
-    def makecombiningwidthtable(self, start, end):
-        table = [-1] * 0x1f
-        self._setupterm()
-        try:
-            #for c in xrange(0, 0x200000):
-            for c in xrange(start, end):
                 sys.stdout.write(u"\x0da" + unichr(c))
                 pos = _getcpr()
                 if pos is None:
                     raise Exception("cpr failed")
                 y, x = pos
                 if self.cpr_off_by_one_glitch:
-                    width = x + 1 - 2
+                    comb_width = x + 1 - 2
                 else:
-                    width = x - 2
-                table.append(width)
+                    comb_width = x - 2
+                if comb_width == 0:
+                    table[c] = 0
+                    continue
+
+                if width != 1 and width != 2:
+                    raise Exception("char: %d, width: %d" % (c, width))
+                table[c] = width
+
+            start = -1
+            ranges = []
+            for c in xrange(first, end + 1):
+                width = table[c - first]
+                if start != -1 and width != 0:
+                    if start == c - 1:
+                        ranges.append("\u%04x" % start)
+                    elif start == c - 2:
+                        ranges.append("\u%04x\u%04x" % (start, c - 1))
+                    else:
+                        ranges.append("\u%04x-\u%04x" % (start, c - 1))
+                    start = -1
+                elif start == -1 and width == 0:
+                    start = c
+            combining_pattern = "/^[" + "".join(ranges) + "]$/"
+            start = -1
+            ranges = []
+            for c in xrange(first, end + 1):
+                width = table[c - first]
+                if start != -1 and width != 2:
+                    if start == c - 1:
+                        ranges.append("\u%04x" % start)
+                    elif start == c - 2:
+                        ranges.append("\u%04x\u%04x" % (start, c - 1))
+                    else:
+                        ranges.append("\u%04x-\u%04x" % (start, c - 1))
+                    start = -1
+                elif start == -1 and width == 2:
+                    start = c
+            fullwidth_pattern = "/^[" + "".join(ranges) + "]$/"
+            start = -1
+            ranges = []
+            for c in xrange(first, end + 1):
+                width = table[c - first]
+                if start != -1 and width != -1:
+                    if start == c - 1:
+                        ranges.append("\u%04x" % start)
+                    elif start == c - 2:
+                        ranges.append("\u%04x\u%04x" % (start, c - 1))
+                    else:
+                        ranges.append("\u%04x-\u%04x" % (start, c - 1))
+                    start = -1
+                elif start == -1 and width == -1:
+                    start = c
+            control_pattern = "/^[" + "".join(ranges) + "]$/"
         finally:
             self._cleanupterm()
-        table.append(-1)
-        return table
-
-    def makepattern(self):
-        table = self.makecombiningwidthtable(0x2ff0, 0x3040)
-        start = -1
-        ranges = {}
-        for c, width in xrange(0, len(table)):
-            if start != -1 and width != 0:
-                if start == c - 1:
-                    ranges.append("\U%08x" % start)
-                else:
-                    ranges.append("\U%08x-\U%08x" % (start, c - 1))
-                start = -1
-            elif start == -1 and width == 0:
-                start = c
-        combining_pattern = "/^[" + "".join(ranges) + "]$/"
-
-        table = self.makefullwidthtable(0x0300, 0x3ff)
-        start = -1
-        ranges = {}
-        for c, width in xrange(0, len(table)):
-            width = table[c]
-            if start != -1 and width != 2:
-                if start == c - 1:
-                    ranges.append("\U%08x" % start)
-                else:
-                    ranges.append("\U%08x-\U%08x" % (start, c - 1))
-                start = -1
-            elif start == -1 and width == 2:
-                start = c
-        fullwidth_pattern = "/^[" + "".join(ranges) + "]$/"
-        print "combining_pattern=re.combile(u'%s')\nfullwidth_pattern=re.combile(u'%s')\n" % (combining_pattern, fullwidth_pattern)
+        return """
+combining_pattern=re.compile(u'%s')
+fullwidth_pattern=re.compile(u'%s')
+control_pattern=re.compile(u'%s')
+""" % (combining_pattern,
+       fullwidth_pattern,
+       control_pattern)
 
     def test(self):
         print "has_cpr: %s" % self.has_cpr
