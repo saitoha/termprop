@@ -323,7 +323,7 @@ class Termprop:
         try:
             first = 0x020
             end = 0x10000
-            table = [-1] * (first - 1) + [1] * (end - first) + [-1]
+            table = [-1] * (first - 1) + [1] * (end - first + 1) + [-1]
             for c in xrange(first, end):
 
                 sys.stdout.write(u"\x0d" + unichr(c))
@@ -359,7 +359,7 @@ class Termprop:
             start = -1
             ranges = []
             for c in xrange(first, end + 1):
-                width = table[c - first]
+                width = table[c]
                 if start != -1 and width != 0:
                     if start == c - 1:
                         ranges.append("\u%04x" % start)
@@ -374,7 +374,7 @@ class Termprop:
             start = -1
             ranges = []
             for c in xrange(first, end + 1):
-                width = table[c - first]
+                width = table[c]
                 if start != -1 and width != 2:
                     if start == c - 1:
                         ranges.append("\u%04x" % start)
@@ -389,7 +389,7 @@ class Termprop:
             start = -1
             ranges = []
             for c in xrange(first, end + 1):
-                width = table[c - first]
+                width = table[c]
                 if start != -1 and width != -1:
                     if start == c - 1:
                         ranges.append("\u%04x" % start)
@@ -404,9 +404,10 @@ class Termprop:
         finally:
             self._cleanupterm()
         return """
-combining_pattern=re.compile(u'%s')
-fullwidth_pattern=re.compile(u'%s')
-control_pattern=re.compile(u'%s')
+import re
+combining_pattern = re.compile(u'%s')
+fullwidth_pattern = re.compile(u'%s')
+control_pattern = re.compile(u'%s')
 """ % (combining_pattern,
        fullwidth_pattern,
        control_pattern)
