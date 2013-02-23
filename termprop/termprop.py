@@ -210,7 +210,7 @@ class Termprop:
     __oldtermios = 0
 
     def __init__(self):
-        self._setupterm()
+        self.setupterm()
         sys.stdout.write("\x1b7\x1b[30;8m\x1b[?25l")
         try:
             cpr_state = _guess_cpr()
@@ -261,7 +261,7 @@ class Termprop:
 
         finally:
             sys.stdout.write("\x1b[?25h\x1b[0m\x1b8")
-            self._cleanupterm()
+            self.cleanupterm()
 
     def set_cjk(self):
         self.is_cjk = True
@@ -282,7 +282,7 @@ class Termprop:
         return _wcswidth(s)
 
     def getyx(self):
-        self._setupterm()
+        self.setupterm()
         try:
             pos = _getcpr()
             if pos is None:
@@ -292,7 +292,7 @@ class Termprop:
             y, x = pos
             return (y + 1, x + 1)
         finally:
-            self._cleanupterm()
+            self.cleanupterm()
 
     def is_vte(self):
         if self.da1 != "?62;9;":
@@ -301,7 +301,7 @@ class Termprop:
             return False
         return True
 
-    def _setupterm(self):
+    def setupterm(self):
         self.__count += 1
         if self.__count == 1:
             self.__oldtermios = termios.tcgetattr(0)
@@ -311,106 +311,12 @@ class Termprop:
             new[6][termios.VTIME] = 1
             termios.tcsetattr(0, termios.TCSANOW, new)
 
-    def _cleanupterm(self):
+    def cleanupterm(self):
         if self.__count > 0:
             self.__count -= 1
             if self.__count == 0:
                 termios.tcsetattr(0, termios.TCSADRAIN, self.__oldtermios)
                 self.__oldtermios = None
-
-    def makepattern(self):
-        self._setupterm()
-        try:
-            first = 0x020
-            end = 0x10000
-            table = [-1] * (first - 1) + [1] * (end - first + 1) + [-1]
-            for c in xrange(first, end):
-
-                sys.stdout.write(u"\x0d" + unichr(c))
-                pos = _getcpr()
-                if pos is None:
-                    raise Exception("cpr failed")
-                y, x = pos
-                if self.cpr_off_by_one_glitch:
-                    width = x + 1 - 1
-                else:
-                    width = x - 1
-                if width == 0:
-                    table[c] = -1
-                    continue
-
-                sys.stdout.write(u"\x0da" + unichr(c))
-                pos = _getcpr()
-                if pos is None:
-                    raise Exception("cpr failed")
-                y, x = pos
-                if self.cpr_off_by_one_glitch:
-                    comb_width = x + 1 - 2
-                else:
-                    comb_width = x - 2
-                if comb_width == 0:
-                    table[c] = 0
-                    continue
-
-                if width != 1 and width != 2:
-                    raise Exception("char: %d, width: %d" % (c, width))
-                table[c] = width
-
-            start = -1
-            ranges = []
-            for c in xrange(first, end + 1):
-                width = table[c]
-                if start != -1 and width != 0:
-                    if start == c - 1:
-                        ranges.append("\u%04x" % start)
-                    elif start == c - 2:
-                        ranges.append("\u%04x\u%04x" % (start, c - 1))
-                    else:
-                        ranges.append("\u%04x-\u%04x" % (start, c - 1))
-                    start = -1
-                elif start == -1 and width == 0:
-                    start = c
-            combining_pattern = "/^[" + "".join(ranges) + "]$/"
-            start = -1
-            ranges = []
-            for c in xrange(first, end + 1):
-                width = table[c]
-                if start != -1 and width != 2:
-                    if start == c - 1:
-                        ranges.append("\u%04x" % start)
-                    elif start == c - 2:
-                        ranges.append("\u%04x\u%04x" % (start, c - 1))
-                    else:
-                        ranges.append("\u%04x-\u%04x" % (start, c - 1))
-                    start = -1
-                elif start == -1 and width == 2:
-                    start = c
-            fullwidth_pattern = "/^[" + "".join(ranges) + "]$/"
-            start = -1
-            ranges = []
-            for c in xrange(first, end + 1):
-                width = table[c]
-                if start != -1 and width != -1:
-                    if start == c - 1:
-                        ranges.append("\u%04x" % start)
-                    elif start == c - 2:
-                        ranges.append("\u%04x\u%04x" % (start, c - 1))
-                    else:
-                        ranges.append("\u%04x-\u%04x" % (start, c - 1))
-                    start = -1
-                elif start == -1 and width == -1:
-                    start = c
-            control_pattern = "/^[" + "".join(ranges) + "]$/"
-        finally:
-            self._cleanupterm()
-        return """
-import re
-combining_pattern = re.compile(u'%s')
-fullwidth_pattern = re.compile(u'%s')
-control_pattern = re.compile(u'%s')
-""" % (combining_pattern,
-       fullwidth_pattern,
-       control_pattern)
 
     def test(self):
         print "has_cpr: %s" % self.has_cpr
@@ -425,6 +331,102 @@ control_pattern = re.compile(u'%s')
         print "DA1: %s" % self.da1
         print "DA2: %s" % self.da2
         print "is_vte: %s" % self.is_vte()
+
+
+def makepattern():
+    prop = Termprop()
+    prop.setupterm()
+    try:
+        first = 0x020
+        end = 0x10000
+        table = [-1] * (first - 1) + [1] * (end - first + 1) + [-2]
+        for c in xrange(first, end):
+
+            sys.stdout.write(u"\x0d" + unichr(c))
+            pos = _getcpr()
+            if pos is None:
+                raise Exception("cpr failed")
+            y, x = pos
+            if prop.cpr_off_by_one_glitch:
+                width = x + 1 - 1
+            else:
+                width = x - 1
+            if width == 0:
+                table[c] = -1
+                continue
+
+            sys.stdout.write(u"\x0da" + unichr(c))
+            pos = _getcpr()
+            if pos is None:
+                raise Exception("cpr failed")
+            y, x = pos
+            if prop.cpr_off_by_one_glitch:
+                comb_width = x + 1 - 2
+            else:
+                comb_width = x - 2
+            if comb_width == 0:
+                table[c] = 0
+                continue
+
+            if width != 1 and width != 2:
+                raise Exception("char: %d, width: %d" % (c, width))
+            table[c] = width
+
+        start = -1
+        ranges = []
+        for c in xrange(first, end + 1):
+            width = table[c]
+            if start != -1 and width != 0:
+                if start == c - 1:
+                    ranges.append("\u%04x" % start)
+                elif start == c - 2:
+                    ranges.append("\u%04x\u%04x" % (start, c - 1))
+                else:
+                    ranges.append("\u%04x-\u%04x" % (start, c - 1))
+                start = -1
+            elif start == -1 and width == 0:
+                start = c
+        combining_pattern = "/^[" + "".join(ranges) + "]$/"
+        start = -1
+        ranges = []
+        for c in xrange(first, end + 1):
+            width = table[c]
+            if start != -1 and width != 2:
+                if start == c - 1:
+                    ranges.append("\u%04x" % start)
+                elif start == c - 2:
+                    ranges.append("\u%04x\u%04x" % (start, c - 1))
+                else:
+                    ranges.append("\u%04x-\u%04x" % (start, c - 1))
+                start = -1
+            elif start == -1 and width == 2:
+                start = c
+        fullwidth_pattern = "/^[" + "".join(ranges) + "]$/"
+        start = -1
+        ranges = []
+        for c in xrange(first, end + 1):
+            width = table[c]
+            if start != -1 and width != -1:
+                if start == c - 1:
+                    ranges.append("\u%04x" % start)
+                elif start == c - 2:
+                    ranges.append("\u%04x\u%04x" % (start, c - 1))
+                else:
+                    ranges.append("\u%04x-\u%04x" % (start, c - 1))
+                start = -1
+            elif start == -1 and width == -1:
+                start = c
+        control_pattern = "/^[" + "".join(ranges) + "]$/"
+    finally:
+        prop.cleanupterm()
+    return """
+import re
+combining_pattern = re.compile(u'%s')
+fullwidth_pattern = re.compile(u'%s')
+control_pattern = re.compile(u'%s')
+""" % (combining_pattern,
+       fullwidth_pattern,
+       control_pattern)
 
 
 def test():
