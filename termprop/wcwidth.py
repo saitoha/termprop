@@ -106,7 +106,7 @@ def wcswidth(run):
         width = wcwidth(c)
         if width == -1:
             return -1
-        c += width
+        n += width
     return n
 
 
@@ -116,5 +116,5 @@ def wcswidth_cjk(run):
         width = wcwidth_cjk(c)
         if width == -1:
             return -1
-        c += width
+        n += width
     return n
