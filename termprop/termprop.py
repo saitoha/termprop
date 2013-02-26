@@ -19,7 +19,7 @@
 # ***** END LICENSE BLOCK *****
 
 __author__ = "Hayaki Saito (user@zuse.jp)"
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 __license__ = "GPL v3"
 
 import sys
@@ -214,9 +214,6 @@ class Termprop:
         sys.stdout.write("\x1b7\x1b[30;8m\x1b[?25l")
         try:
             cpr_state = _guess_cpr()
-            self.color_bg = _get_bg()
-            if self.color_bg:
-                self.has_color_report = True
 
             # get device attributes
             self.da1 = _getda1()
@@ -245,19 +242,25 @@ class Termprop:
             else:
                 self.set_noncjk()
 
-            # detect title capability
-            self.has_title = _guess_title()
-            if self.has_title:
-                self.has_mb_title = _guess_mb_title()
-
             env_term = os.getenv("TERM", "")
 
-            # detect color capability
-            _pattern_256color = re.compile('(256color|terminator|iTerm)')
-            if _pattern_256color.match(env_term):
-                self.has_256color = True
+            if not env_term.startswith("vt")
 
-            sys.stdout.write("\x1b]2;\x1b\\")
+                self.color_bg = _get_bg()
+                if self.color_bg:
+                    self.has_color_report = True
+
+                # detect title capability
+                self.has_title = _guess_title()
+                if self.has_title:
+                    self.has_mb_title = _guess_mb_title()
+
+                # detect color capability
+                _pattern_256color = re.compile('(256color|terminator|iTerm)')
+                if _pattern_256color.match(env_term):
+                    self.has_256color = True
+
+                sys.stdout.write("\x1b]2;\x1b\\")
 
         finally:
             sys.stdout.write("\x1b[?25h\x1b[0m\x1b8")
@@ -369,7 +372,8 @@ def makepattern():
                 continue
 
             if width != 1 and width != 2:
-                raise Exception("char: %d, width: %d" % (c, width))
+                #raise Exception("char: %d, width: %d" % (c, width))
+                print "char: %x, width: %d" % (c, width)
             table[c] = width
 
         start = -1
