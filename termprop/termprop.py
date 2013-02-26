@@ -244,7 +244,7 @@ class Termprop:
 
             env_term = os.getenv("TERM", "")
 
-            if not env_term.startswith("vt")
+            if not env_term.startswith("vt"):
 
                 self.color_bg = _get_bg()
                 if self.color_bg:
