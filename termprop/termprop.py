@@ -336,6 +336,13 @@ class Termprop:
         print "is_vte: %s" % self.is_vte()
 
 
+class MockTermprop(Termprop):
+    """
+    termprop = MockTermprop()
+    """
+    def __init__(self):
+        pass
+
 def makepattern():
     prop = Termprop()
     prop.setupterm()
