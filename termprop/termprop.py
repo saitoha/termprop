@@ -37,7 +37,7 @@ def _getcpr():
     for i in xrange(0, 3):
         sys.stdout.write("\x1b[6n")
         sys.stdout.flush()
-        rfd, wfd, xfd = select.select([0], [], [], 1.5)
+        rfd, wfd, xfd = select.select([0], [], [], 0.3)
         if rfd:
             data += os.read(0, 1024)
             m = _cpr_pattern.match(data)
