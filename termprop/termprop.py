@@ -341,7 +341,27 @@ class MockTermprop(Termprop):
     termprop = MockTermprop()
     """
     def __init__(self):
+        self.set_noncjk()
         pass
+
+    def wcwidth(self, c):
+        _wcwidth = self.wcwidth
+        return _wcwidth(c)
+
+    def wcswidth(self, s):
+        _wcswidth = self.wcswidth
+        return _wcswidth(s)
+
+    def set_cjk(self):
+        self.is_cjk = True
+        self.wcwidth = ww.wcwidth_cjk
+        self.wcswidth = ww.wcswidth_cjk
+
+    def set_noncjk(self):
+        self.is_cjk = False
+        self.wcwidth = ww.wcwidth
+        self.wcswidth = ww.wcswidth
+
 
 def makepattern():
     prop = Termprop()
