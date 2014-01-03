@@ -222,7 +222,11 @@ class Termprop:
         try:
             # get device attributes
             self.da2 = _getda2()
-            if self.da2 == ">0;95;":
+            if self.da2 == ">0;95;": # iTerm2
+                has_cpr = True
+                self.cpr_off_by_one_glitch = False
+                self.da1 = "?1;2"
+            elif self.da2 == ">32;277;2": # mouseterm_plus
                 has_cpr = True
                 self.cpr_off_by_one_glitch = False
                 self.da1 = "?1;2"
@@ -256,6 +260,9 @@ class Termprop:
                 if self.da2 == ">0;95;":
                     self.has_nonbmp = False
                     self.has_combine = True
+                elif self.da2 == ">32;277;2":
+                    self.has_nonbmp = False
+                    self.has_combine = True
                 else:
                     self.has_nonbmp = _guess_nonbmp()
                     self.has_combine = _guess_combine()
@@ -276,13 +283,19 @@ class Termprop:
                 if self.da2 == ">0;95;":
                     self.color_bg = None
                     self.has_bgfg_color_report = False
+                elif self.da2 == ">32;277;2":
+                    self.color_bg = None
+                    self.has_bgfg_color_report = False
                 else:
                     self.color_bg = _get_bg()
                     if self.color_bg:
                         self.has_bgfg_color_report = True
 
                 # detect title capability
-                if self.da2 == ">0;95;":
+                if self.da2 == ">0;95;":  # iTerm2
+                    self.has_title = True
+                    self.has_mb_title = True
+                elif self.da2 == ">32;277;2":  # mouseterm_plus
                     self.has_title = True
                     self.has_mb_title = True
                 else:
@@ -355,10 +368,11 @@ class Termprop:
         if self.__count > 0:
             self.__count -= 1
             if self.__count == 0:
-                termios.tcsetattr(0, termios.TCSAFLUSH, self.__oldtermios)
+                termios.tcsetattr(0, termios.TCSANOW, self.__oldtermios)
                 self.__oldtermios = None
 
     def test(self):
+        print "\x1b[m"
         print "has_cpr: %s" % self.has_cpr
         print "has_bgfg_color_report: %s" % self.has_bgfg_color_report
         print "color_bg: %s" % self.color_bg
