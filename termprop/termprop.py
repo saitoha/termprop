@@ -174,7 +174,7 @@ def _guess_title():
 
 
 def _guess_mb_title():
-    if _get_width("\x1b]2;＜\x1b\\") == 0:
+    if _get_width("\x1b]2;＜a\x1b\\") == 0:
         return True
     return False
 
@@ -201,6 +201,7 @@ class Termprop:
     da1 = -1
     da2 = -1
     has_256color = False
+    term = None 
 
     """
     # not implemented
@@ -222,23 +223,40 @@ class Termprop:
         self.setupterm()
         sys.stdout.write("\x1b7\x1b[30;8m\x1b[?25l")
         try:
-            # get device attributes
-            self.da2 = _getda2()
-            if self.da2 == ">0;95;": # iTerm2
-                has_cpr = True
+            self.term = os.getenv("TERM", "")
+
+            if self.is_cygwin_console():
+                has_cpr = False
                 self.cpr_off_by_one_glitch = False
-                self.da1 = "?1;2"
-            elif self.da2 == ">32;277;2": # mouseterm_plus
-                has_cpr = True
+                self.da2 = ""
+                self.da1 = ""
+            elif self.is_st():
+                has_cpr = False
                 self.cpr_off_by_one_glitch = False
-                self.da1 = "?1;2"
+                self.da2 = ""
+                self.da1 = "?6c"
+            else:
+                # get device attributes
+                self.da2 = _getda2()
+                if self.is_iterm2():
+                    has_cpr = True
+                    self.cpr_off_by_one_glitch = False
+                    self.da1 = "?1;2"
+                elif self.is_mouseterm_plus():
+                    has_cpr = True
+                    self.cpr_off_by_one_glitch = False
+                    self.da1 = "?1;2"
+                elif self.is_mintty():
+                    has_cpr = True
+                    self.cpr_off_by_one_glitch = False
+                    self.da1 = "?1;2"
+                if self.da1 is None:
+                    self.da1 = _getda1()
 
-            if self.da1 is None:
-                self.da1 = _getda1()
-
-            env_term = os.getenv("TERM", "")
-
-            if env_term.startswith("st"):
+            if self.is_cygwin_console():
+                self.has_cpr = False
+                self.cpr_off_by_one_glitch = False
+            elif self.is_st():
                 self.has_cpr = False
                 self.cpr_off_by_one_glitch = False
             elif self.has_cpr is None:
@@ -259,11 +277,20 @@ class Termprop:
             if self.has_cpr:
                 self.is_cjk = _guess_cjk()
                 self.has_altscreen = _guess_altscreen()
-                if self.da2 == ">0;95;":
+                if self.is_iterm2():
                     self.has_nonbmp = False
                     self.has_combine = True
-                elif self.da2 == ">32;277;2":
+                elif self.is_mouseterm_plus():
                     self.has_nonbmp = False
+                    self.has_combine = True
+                elif self.is_mintty():
+                    self.has_nonbmp = False
+                    self.has_combine = True
+                elif self.is_cygwin_console():
+                    self.has_nonbmp = True
+                    self.has_combine = True
+                elif self.is_st():
+                    self.has_nonbmp = True
                     self.has_combine = True
                 else:
                     self.has_nonbmp = _guess_nonbmp()
@@ -280,12 +307,12 @@ class Termprop:
             else:
                 self.set_noncjk()
 
-            if not env_term.startswith("vt"):
+            if not self.term.startswith("vt"):
 
-                if self.da2 == ">0;95;":
+                if self.is_iterm2():
                     self.color_bg = None
                     self.has_bgfg_color_report = False
-                elif self.da2 == ">32;277;2":
+                elif self.is_mouseterm_plus():
                     self.color_bg = None
                     self.has_bgfg_color_report = False
                 else:
@@ -294,12 +321,21 @@ class Termprop:
                         self.has_bgfg_color_report = True
 
                 # detect title capability
-                if self.da2 == ">0;95;":  # iTerm2
+                if self.is_iterm2():
                     self.has_title = True
                     self.has_mb_title = True
-                elif self.da2 == ">32;277;2":  # mouseterm_plus
+                elif self.is_mouseterm_plus():
                     self.has_title = True
                     self.has_mb_title = True
+                elif self.is_mintty():
+                    self.has_title = True
+                    self.has_mb_title = True
+                elif self.is_st():
+                    self.has_title = True
+                    self.has_mb_title = True
+                elif self.is_cygwin_console():
+                    self.has_title = False
+                    self.has_mb_title = False
                 else:
                     self.has_title = _guess_title()
                     if self.has_title:
@@ -309,7 +345,7 @@ class Termprop:
 
                 # detect color capability
                 _pattern_256color = re.compile('(256color|terminator|iTerm)')
-                if _pattern_256color.match(env_term):
+                if _pattern_256color.match(self.term):
                     self.has_256color = True
 
                 sys.stdout.write("\x1b]2;\x1b\\")
@@ -355,6 +391,21 @@ class Termprop:
         if not re.match(">1;[23][0-9]{3};0", self.da2):
             return False
         return True
+
+    def is_iterm2(self):
+        return self.da2 == ">0;95;"
+
+    def is_mouseterm_plus(self):
+        return self.da2 == ">32;277;2"
+
+    def is_mintty(self):
+        return re.match(">77;[0-9]+;2", self.da2) is not None
+
+    def is_cygwin_console(self):
+        return self.term.startswith("cygwin")
+
+    def is_st(self):
+        return self.term.startswith("st")
 
     def setupterm(self):
         self.__count += 1
