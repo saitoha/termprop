@@ -24,10 +24,6 @@
 # 
 # ***** END LICENSE BLOCK *****
 
-__author__ = "Hayaki Saito (user@zuse.jp)"
-__version__ = "0.0.5"
-__license__ = "GPL v3"
-
 import sys
 import os
 import termios
