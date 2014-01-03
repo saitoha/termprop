@@ -186,14 +186,14 @@ def _guess_altscreen():
 class Termprop:
 
     has_cpr = None
-    has_color_report = False
+    has_bgfg_color_report = None
     has_256color = False
     cpr_off_by_one_glitch = False
     is_cjk = None
     has_nonbmp = None
     has_combine = None
     has_title = False
-    has_mb_title = False
+    has_mb_title = None
     has_altscreen = True
     color_bg = ""
     da1 = -1
@@ -273,14 +273,24 @@ class Termprop:
 
             if not env_term.startswith("vt"):
 
-                self.color_bg = _get_bg()
-                if self.color_bg:
-                    self.has_color_report = True
+                if self.da2 == ">0;95;":
+                    self.color_bg = None
+                    self.has_bgfg_color_report = False
+                else:
+                    self.color_bg = _get_bg()
+                    if self.color_bg:
+                        self.has_bgfg_color_report = True
 
                 # detect title capability
-                self.has_title = _guess_title()
-                if self.has_title:
-                    self.has_mb_title = _guess_mb_title()
+                if self.da2 == ">0;95;":
+                    self.has_title = True
+                    self.has_mb_title = True
+                else:
+                    self.has_title = _guess_title()
+                    if self.has_title:
+                        self.has_mb_title = _guess_mb_title()
+                    else:
+                        self.has_mb_title = None
 
                 # detect color capability
                 _pattern_256color = re.compile('(256color|terminator|iTerm)')
@@ -350,7 +360,7 @@ class Termprop:
 
     def test(self):
         print "has_cpr: %s" % self.has_cpr
-        print "has_color_report: %s" % self.has_color_report
+        print "has_bgfg_color_report: %s" % self.has_bgfg_color_report
         print "color_bg: %s" % self.color_bg
         print "cpr_off_by_one_glitch: %s" % self.cpr_off_by_one_glitch
         print "cjk: %s" % self.is_cjk
