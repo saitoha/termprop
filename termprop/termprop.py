@@ -161,8 +161,8 @@ def _guess_combine():
 
 def _guess_nonbmp():
     if _get_width("𠀁") == 2:
-        return True
-    return False
+        return False
+    return True
 
 
 def _guess_title():
@@ -177,17 +177,24 @@ def _guess_mb_title():
     return False
 
 
+def _guess_altscreen():
+    if _get_width("\x1b[?1049habc\x1b[?1049l") == 0:
+        return True
+    return False
+
+
 class Termprop:
 
-    has_cpr = False
+    has_cpr = None
     has_color_report = False
     has_256color = False
     cpr_off_by_one_glitch = False
-    is_cjk = False
-    has_nonbmp = False
-    has_combine = False
+    is_cjk = None
+    has_nonbmp = None
+    has_combine = None
     has_title = False
     has_mb_title = False
+    has_altscreen = True
     color_bg = ""
     da1 = -1
     da2 = -1
@@ -213,36 +220,56 @@ class Termprop:
         self.setupterm()
         sys.stdout.write("\x1b7\x1b[30;8m\x1b[?25l")
         try:
-            cpr_state = _guess_cpr()
-
             # get device attributes
-            self.da1 = _getda1()
             self.da2 = _getda2()
+            if self.da2 == ">0;95;":
+                has_cpr = True
+                self.cpr_off_by_one_glitch = False
+                self.da1 = "?1;2"
 
-            # detect CPR(DSR 6) capability
-            if cpr_state == _CPR_NOT_SUPPORTED:
+            if self.da1 is None:
+                self.da1 = _getda1()
+
+            env_term = os.getenv("TERM", "")
+
+            if env_term.startswith("st"):
                 self.has_cpr = False
                 self.cpr_off_by_one_glitch = False
-            elif cpr_state == _CPR_OFF_BY_ONE:
-                self.has_cpr = True
-                self.cpr_off_by_one_glitch = True
-            else:
-                self.has_cpr = True
-                self.cpr_off_by_one_glitch = False
+            elif self.has_cpr is None:
+                cpr_state = _guess_cpr()
 
-            # detect width options with CPR(DSR 6)
+                # detect CPR(DSR 6) capability
+                if cpr_state == _CPR_NOT_SUPPORTED:
+                    self.has_cpr = False
+                    self.cpr_off_by_one_glitch = False
+                elif cpr_state == _CPR_OFF_BY_ONE:
+                    self.has_cpr = True
+                    self.cpr_off_by_one_glitch = True
+                else:
+                    self.has_cpr = True
+                    self.cpr_off_by_one_glitch = False
+
+            # detect width options using CPR(DSR 6)
             if self.has_cpr:
                 self.is_cjk = _guess_cjk()
-                self.has_nonbmp = _guess_nonbmp()
-                self.has_combine = _guess_combine()
+                self.has_altscreen = _guess_altscreen()
+                if self.da2 == ">0;95;":
+                    self.has_nonbmp = False
+                    self.has_combine = True
+                else:
+                    self.has_nonbmp = _guess_nonbmp()
+                    self.has_combine = _guess_combine()
+            else:
+                self.is_cjk = False
+                self.has_nonbmp = True
+                self.has_combine = True
+                self.has_altscreen = False
 
             # select wcwidth
             if self.is_cjk:
                 self.set_cjk()
             else:
                 self.set_noncjk()
-
-            env_term = os.getenv("TERM", "")
 
             if not env_term.startswith("vt"):
 
@@ -318,7 +345,7 @@ class Termprop:
         if self.__count > 0:
             self.__count -= 1
             if self.__count == 0:
-                termios.tcsetattr(0, termios.TCSADRAIN, self.__oldtermios)
+                termios.tcsetattr(0, termios.TCSAFLUSH, self.__oldtermios)
                 self.__oldtermios = None
 
     def test(self):
@@ -331,6 +358,7 @@ class Termprop:
         print "combine: %s" % self.has_combine
         print "title: %s" % self.has_title
         print "mb_title: %s" % self.has_mb_title
+        print "altscreen: %s" % self.has_altscreen
         print "DA1: %s" % self.da1
         print "DA2: %s" % self.da2
         print "is_vte: %s" % self.is_vte()
