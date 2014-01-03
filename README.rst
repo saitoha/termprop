@@ -22,10 +22,10 @@ or via pip ::
     $ pip install termprop
 
 
-Usage
------
+License
+-------
 
-Comming soon...
+MIT License
 
 Dependencies
 ------------
