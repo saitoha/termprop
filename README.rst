@@ -6,7 +6,7 @@ What is This
 
     termprop detects some terminal glitches and advanced facilities information,
     that terminfo does not provide.
-    This package is inspired MinEd's termprop.c.
+    This package is inspired by MinEd's termprop.c.
 
 Install
 -------

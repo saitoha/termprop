@@ -407,6 +407,9 @@ class Termprop:
     def is_st(self):
         return self.term.startswith("st")
 
+    def is_screen_family(self):
+        return self.term.startswith("screen")
+
     def setupterm(self):
         self.__count += 1
         if self.__count == 1:
