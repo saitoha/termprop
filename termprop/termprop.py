@@ -36,18 +36,21 @@ _cpr_pattern = re.compile('\x1b\[([0-9]+);([0-9]+)R')
 
 def _getcpr():
     data = ""
-    for i in xrange(0, 3):
-        sys.stdout.write("\x1b[6n")
+    sys.stdout.write("\x1b[2h\x1b[6n")
+    try:
         sys.stdout.flush()
-        rfd, wfd, xfd = select.select([0], [], [], 0.3)
-        if rfd:
-            data += os.read(0, 1024)
-            m = _cpr_pattern.match(data)
-            if m is None:
-                continue
-            row = int(m.group(1))
-            col = int(m.group(2))
-            return row, col
+        for i in xrange(0, 10):
+            rfd, wfd, xfd = select.select([sys.stdin.fileno()], [], [], 0.1)
+            if rfd:
+                data += os.read(0, 1024)
+                m = _cpr_pattern.match(data)
+                if m is None:
+                    continue
+                row = int(m.group(1))
+                col = int(m.group(2))
+                return row, col
+    finally:
+        sys.stdout.write("\x1b[2l")
     return None
 
 _bg_pattern = re.compile(
@@ -56,33 +59,40 @@ _bg_pattern = re.compile(
 
 def _getbg():
     data = ""
-    for i in xrange(0, 3):
-        sys.stdout.write("\x1b]11;?\x1b\\")
+    sys.stdout.write("\x1b[?2h\x1b]11;?\x1b\\")
+    try:
         sys.stdout.flush()
-        rfd, wfd, xfd = select.select([0], [], [], 0.2)
-        if rfd:
-            data += os.read(0, 1024)
-            m = _bg_pattern.match(data)
-            if m is None:
-                continue
-            params = m.group(1).split("/")
-            return params
+        for i in xrange(0, 20):
+            rfd, wfd, xfd = select.select([sys.stdin.fileno()], [], [], 0.1)
+            if rfd:
+                data += os.read(0, 1024)
+                m = _bg_pattern.match(data)
+                if m is None:
+                    continue
+                params = m.group(1).split("/")
+                return params
+    finally:
+        sys.stdout.write("\x1b[2l")
+    return None
 
 _da1_pattern = re.compile('\x1b\[(\?[0-9;\.]+)c')
 
 
 def _getda1():
     data = ""
-    for i in xrange(0, 3):
-        sys.stdout.write("\x1b[c")
+    sys.stdout.write("\x1b[?2h\x1b[c")
+    try:
         sys.stdout.flush()
-        rfd, wfd, xfd = select.select([0], [], [], 0.2)
-        if rfd:
-            data += os.read(0, 1024)
-            m = _da1_pattern.match(data)
-            if m is None:
-                continue
-            return m.group(1)
+        for i in xrange(0, 10):
+            rfd, wfd, xfd = select.select([sys.stdin.fileno()], [], [], 0.1)
+            if rfd:
+                data += os.read(0, 1024)
+                m = _da1_pattern.match(data)
+                if m is None:
+                    continue
+                return m.group(1)
+    finally:
+        sys.stdout.write("\x1b[2l")
     return "-"
 
 _da2_pattern = re.compile('\x1b\[([>\?0-9;]+)c')
@@ -90,29 +100,35 @@ _da2_pattern = re.compile('\x1b\[([>\?0-9;]+)c')
 
 def _getda2():
     data = ""
-    for i in xrange(0, 3):
-        sys.stdout.write("\x1b[>c")
+    sys.stdout.write("\x1b[2h\x1b[>c")
+    try:
         sys.stdout.flush()
-        rfd, wfd, xfd = select.select([0], [], [], 0.2)
-        if rfd:
-            data += os.read(0, 1024)
-            m = _da2_pattern.match(data)
-            if m is None:
-                continue
-            return m.group(1)
+        for i in xrange(0, 20):
+            rfd, wfd, xfd = select.select([sys.stdin.fileno()], [], [], 0.1)
+            if rfd:
+                data += os.read(0, 1024)
+                m = _da2_pattern.match(data)
+                if m is None:
+                    continue
+                return m.group(1)
+    finally:
+        sys.stdout.write("\x1b[2l")
     return "-"
 
 
 def _getenq(stdin, stdout):
     data = ""
     sys.stdin.flush()
-    stdout.write("\x05")
-    stdout.flush()
-
-    rfd, wfd, xfd = select.select([sys.stdin.fileno()], [], [], 0.1)
-    if rfd:
-        data = os.read(0, 1024)
-        return data
+    stdout.write("\x1b[2h\x05")
+    try:
+        stdout.flush()
+        rfd, wfd, xfd = select.select([sys.stdin.fileno()], [], [], 0.1)
+        if rfd:
+            data = os.read(0, 1024)
+            return data
+    finally:
+        sys.stdout.write("\x1b[2l")
+    return None
 
 
 _CPR_OK = 0
@@ -201,7 +217,7 @@ class Termprop:
     da1 = -1
     da2 = -1
     has_256color = False
-    term = None 
+    term = None
 
     """
     # not implemented
@@ -226,12 +242,12 @@ class Termprop:
             self.term = os.getenv("TERM", "")
 
             if self.is_cygwin_console():
-                has_cpr = False
+                self.has_cpr = False
                 self.cpr_off_by_one_glitch = False
                 self.da2 = ""
                 self.da1 = ""
             elif self.is_st():
-                has_cpr = False
+                self.has_cpr = False
                 self.cpr_off_by_one_glitch = False
                 self.da2 = ""
                 self.da1 = "?6c"
@@ -239,15 +255,15 @@ class Termprop:
                 # get device attributes
                 self.da2 = _getda2()
                 if self.is_iterm2():
-                    has_cpr = True
+                    self.has_cpr = True
                     self.cpr_off_by_one_glitch = False
                     self.da1 = "?1;2"
                 elif self.is_mouseterm_plus():
-                    has_cpr = True
+                    self.has_cpr = True
                     self.cpr_off_by_one_glitch = False
                     self.da1 = "?1;2"
                 elif self.is_mintty():
-                    has_cpr = True
+                    self.has_cpr = True
                     self.cpr_off_by_one_glitch = False
                     self.da1 = "?1;2"
                 if self.da1 is None:
@@ -276,7 +292,7 @@ class Termprop:
             # detect width options using CPR(DSR 6)
             if self.has_cpr:
                 self.is_cjk = _guess_cjk()
-                self.has_altscreen = _guess_altscreen()
+#                self.has_altscreen = _guess_altscreen()
                 if self.is_iterm2():
                     self.has_nonbmp = False
                     self.has_combine = True
@@ -416,7 +432,7 @@ class Termprop:
             self.__oldtermios = termios.tcgetattr(0)
             new = termios.tcgetattr(0)
             new[3] &= ~(termios.ECHO | termios.ICANON)
-            new[6][termios.VMIN] = 20
+            new[6][termios.VMIN] = 1 
             new[6][termios.VTIME] = 1
             termios.tcsetattr(0, termios.TCSANOW, new)
 
