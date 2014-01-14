@@ -275,6 +275,9 @@ class Termprop:
             elif self.is_st():
                 self.has_cpr = False
                 self.cpr_off_by_one_glitch = False
+            elif self.is_vte():
+                self.has_cpr = True
+                self.cpr_off_by_one_glitch = False
             elif self.has_cpr is None:
                 cpr_state = _guess_cpr()
 
@@ -308,6 +311,9 @@ class Termprop:
                 elif self.is_st():
                     self.has_nonbmp = True
                     self.has_combine = True
+                elif self.is_vte():
+                    self.has_nonbmp = True
+                    self.has_combine = True
                 else:
                     self.has_nonbmp = _guess_nonbmp()
                     self.has_combine = _guess_combine()
@@ -331,6 +337,9 @@ class Termprop:
                 elif self.is_mouseterm_plus():
                     self.color_bg = None
                     self.has_bgfg_color_report = False
+                elif self.is_vte():
+                    self.color_bg = None
+                    self.has_bgfg_color_report = False
                 else:
                     self.color_bg = _get_bg()
                     if self.color_bg:
@@ -350,6 +359,9 @@ class Termprop:
                     self.has_title = True
                     self.has_mb_title = True
                 elif self.is_cygwin_console():
+                    self.has_title = False
+                    self.has_mb_title = False
+                elif self.is_vte():
                     self.has_title = False
                     self.has_mb_title = False
                 else:
