@@ -214,8 +214,8 @@ class Termprop:
     has_mb_title = None
     has_altscreen = True
     color_bg = ""
-    da1 = -1
-    da2 = -1
+    da1 = None
+    da2 = None
     has_256color = False
     term = None
 
