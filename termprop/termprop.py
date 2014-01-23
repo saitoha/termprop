@@ -361,6 +361,9 @@ class Termprop:
                 elif self.is_vte():
                     self.color_bg = None
                     self.has_bgfg_color_report = False
+                elif self.is_cygwin_console():
+                    self.color_bg = None
+                    self.has_bgfg_color_report = False
                 else:
                     self.color_bg = _get_bg()
                     if self.color_bg:
