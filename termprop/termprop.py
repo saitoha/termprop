@@ -274,6 +274,10 @@ class Termprop:
                 elif self.is_mlterm():
                     self.has_cpr = True
                     self.cpr_off_by_one_glitch = False
+                elif self.is_rxvt():
+                    self.has_cpr = True
+                    self.cpr_off_by_one_glitch = False
+                    self.da1 = "?1;2c"
                 if self.da1 is None:
                     self.da1 = _getda1()
 
@@ -349,6 +353,9 @@ class Termprop:
                     self.color_bg = None
                     self.has_bgfg_color_report = False
                 elif self.is_mouseterm_plus():
+                    self.color_bg = None
+                    self.has_bgfg_color_report = False
+                elif self.is_rxvt():
                     self.color_bg = None
                     self.has_bgfg_color_report = False
                 elif self.is_vte():
@@ -445,6 +452,9 @@ class Termprop:
 
     def is_mintty(self):
         return re.match(">77;[0-9]+;2", self.da2) is not None
+
+    def is_rxvt(self):
+        return re.match(">82;[0-9]+;0", self.da2) is not None
 
     def is_mlterm(self):
         return re.match(">1;96;0", self.da2) is not None
