@@ -237,7 +237,7 @@ class Termprop:
 
     def __init__(self):
         self.setupterm()
-        sys.stdout.write("\x1b7\x1b[30;8m\x1b[?25l")
+        sys.stdout.write("\x1b[30;8m\x1b[?25l")
         try:
             self.term = os.getenv("TERM", "")
 
@@ -251,6 +251,11 @@ class Termprop:
                 self.cpr_off_by_one_glitch = False
                 self.da2 = ""
                 self.da1 = "?6c"
+            elif self.is_urxvt():
+                self.has_cpr = True
+                self.cpr_off_by_one_glitch = False
+                self.da2 = ">85;95;0"
+                self.da1 = "?1;2c"
             else:
                 # get device attributes
                 self.da2 = _getda2()
@@ -311,6 +316,9 @@ class Termprop:
                 elif self.is_st():
                     self.has_nonbmp = True
                     self.has_combine = True
+                elif self.is_urxvt():
+                    self.has_nonbmp = False
+                    self.has_combine = True
                 elif self.is_vte():
                     self.has_nonbmp = True
                     self.has_combine = True
@@ -340,6 +348,9 @@ class Termprop:
                 elif self.is_vte():
                     self.color_bg = None
                     self.has_bgfg_color_report = False
+                elif self.is_urxvt():
+                    self.color_bg = None
+                    self.has_bgfg_color_report = False
                 else:
                     self.color_bg = _get_bg()
                     if self.color_bg:
@@ -353,6 +364,9 @@ class Termprop:
                     self.has_title = True
                     self.has_mb_title = True
                 elif self.is_mintty():
+                    self.has_title = True
+                    self.has_mb_title = True
+                elif self.is_urxvt():
                     self.has_title = True
                     self.has_mb_title = True
                 elif self.is_st():
@@ -379,7 +393,7 @@ class Termprop:
                 sys.stdout.write("\x1b]2;\x1b\\")
 
         finally:
-            sys.stdout.write("\x1b[?25h\x1b[0m\x1b8")
+            sys.stdout.write("\x1bc")
             self.cleanupterm()
 
     def set_cjk(self):
@@ -428,6 +442,11 @@ class Termprop:
 
     def is_mintty(self):
         return re.match(">77;[0-9]+;2", self.da2) is not None
+
+    def is_urxvt(self):
+        if self.term.startswith("rxvt-unicode"):
+            return True
+        return re.match(">85;[0-9]+;0", self.da2) is not None
 
     def is_cygwin_console(self):
         return self.term.startswith("cygwin")
