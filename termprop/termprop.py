@@ -59,7 +59,7 @@ _bg_pattern = re.compile(
 
 def _getbg():
     data = ""
-    sys.stdout.write("\x1b[?2h\x1b]11;?\x1b\\")
+    sys.stdout.write("\x1b[2h\x1b]11;?\x1b\\")
     try:
         sys.stdout.flush()
         for i in xrange(0, 20):
@@ -80,7 +80,7 @@ _da1_pattern = re.compile('\x1b\[(\?[0-9;\.]+)c')
 
 def _getda1():
     data = ""
-    sys.stdout.write("\x1b[?2h\x1b[c")
+    sys.stdout.write("\x1b[2h\x1b[c")
     try:
         sys.stdout.flush()
         for i in xrange(0, 10):
