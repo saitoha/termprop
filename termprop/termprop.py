@@ -446,6 +446,8 @@ class Termprop:
     def is_urxvt(self):
         if self.term.startswith("rxvt-unicode"):
             return True
+        if not self.da2:
+            return False
         return re.match(">85;[0-9]+;0", self.da2) is not None
 
     def is_cygwin_console(self):
