@@ -39,7 +39,7 @@ def _getcpr():
     sys.stdout.write("\x1b[2h\x1b[6n")
     try:
         sys.stdout.flush()
-        for i in xrange(0, 10):
+        for i in xrange(0, 12):
             rfd, wfd, xfd = select.select([sys.stdin.fileno()], [], [], 0.1)
             if rfd:
                 data += os.read(0, 1024)
@@ -54,7 +54,7 @@ def _getcpr():
     return None
 
 _bg_pattern = re.compile(
-    '\x1b\][0-9]+;rgb\:([0-9A-Fa-f]+\/[0-9A-Fa-f]+\/[0-9A-Fa-f]+)')
+    '\x1b\][0-9]+;rgb\:([0-9A-Fa-f]+\/[0-9A-Fa-f]+\/[0-9A-Fa-f]+)(\x1b\\|\x1b|\x09)')
 
 
 def _getbg():
