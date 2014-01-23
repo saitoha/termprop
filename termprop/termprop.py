@@ -43,7 +43,7 @@ def _getcpr():
             rfd, wfd, xfd = select.select([sys.stdin.fileno()], [], [], 0.1)
             if rfd:
                 data += os.read(0, 1024)
-                m = _cpr_pattern.match(data)
+                m = _cpr_pattern.search(data)
                 if m is None:
                     continue
                 row = int(m.group(1))
@@ -54,7 +54,7 @@ def _getcpr():
     return None
 
 _bg_pattern = re.compile(
-    '\x1b\][0-9]+;rgb\:([0-9A-Fa-f]+\/[0-9A-Fa-f]+\/[0-9A-Fa-f]+)\x1b\\\\')
+    '\x1b\][0-9]+;rgb\:([0-9A-Fa-f]+\/[0-9A-Fa-f]+\/[0-9A-Fa-f]+)')
 
 
 def _getbg():
@@ -66,7 +66,7 @@ def _getbg():
             rfd, wfd, xfd = select.select([sys.stdin.fileno()], [], [], 0.1)
             if rfd:
                 data += os.read(0, 1024)
-                m = _bg_pattern.match(data)
+                m = _bg_pattern.search(data)
                 if m is None:
                     continue
                 params = m.group(1).split("/")
@@ -87,7 +87,7 @@ def _getda1():
             rfd, wfd, xfd = select.select([sys.stdin.fileno()], [], [], 0.1)
             if rfd:
                 data += os.read(0, 1024)
-                m = _da1_pattern.match(data)
+                m = _da1_pattern.search(data)
                 if m is None:
                     continue
                 return m.group(1)
@@ -107,7 +107,7 @@ def _getda2():
             rfd, wfd, xfd = select.select([sys.stdin.fileno()], [], [], 0.1)
             if rfd:
                 data += os.read(0, 1024)
-                m = _da2_pattern.match(data)
+                m = _da2_pattern.search(data)
                 if m is None:
                     continue
                 return m.group(1)
@@ -271,6 +271,9 @@ class Termprop:
                     self.has_cpr = True
                     self.cpr_off_by_one_glitch = False
                     self.da1 = "?1;2"
+                elif self.is_mlterm():
+                    self.has_cpr = True
+                    self.cpr_off_by_one_glitch = False
                 if self.da1 is None:
                     self.da1 = _getda1()
 
@@ -319,6 +322,9 @@ class Termprop:
                 elif self.is_urxvt():
                     self.has_nonbmp = False
                     self.has_combine = True
+                elif self.is_mlterm():
+                    self.has_nonbmp = False
+                    self.has_combine = True
                 elif self.is_vte():
                     self.has_nonbmp = True
                     self.has_combine = True
@@ -346,9 +352,6 @@ class Termprop:
                     self.color_bg = None
                     self.has_bgfg_color_report = False
                 elif self.is_vte():
-                    self.color_bg = None
-                    self.has_bgfg_color_report = False
-                elif self.is_urxvt():
                     self.color_bg = None
                     self.has_bgfg_color_report = False
                 else:
@@ -387,7 +390,7 @@ class Termprop:
 
                 # detect color capability
                 _pattern_256color = re.compile('(256color|terminator|iTerm)')
-                if _pattern_256color.match(self.term):
+                if _pattern_256color.search(self.term):
                     self.has_256color = True
 
                 sys.stdout.write("\x1b]2;\x1b\\")
@@ -442,6 +445,9 @@ class Termprop:
 
     def is_mintty(self):
         return re.match(">77;[0-9]+;2", self.da2) is not None
+
+    def is_mlterm(self):
+        return re.match(">1;96;0", self.da2) is not None
 
     def is_urxvt(self):
         if self.term.startswith("rxvt-unicode"):
