@@ -29,7 +29,6 @@ import os
 import termios
 import select
 import re
-import wcwidth as ww
 
 _cpr_pattern = re.compile('\x1b\[([0-9]+);([0-9]+)R')
 
@@ -409,13 +408,22 @@ class Termprop:
             sys.stdout.write("\x1bc")
             self.cleanupterm()
 
+    def get_width_lib(self):
+        if False:
+            import wcwidth
+            return wcwidth
+        import wcwidth 
+        return wcwidth
+
     def set_cjk(self):
         self.is_cjk = True
+        ww = self.get_width_lib()
         self.wcwidth = ww.wcwidth_cjk
         self.wcswidth = ww.wcswidth_cjk
 
     def set_noncjk(self):
         self.is_cjk = False
+        ww = self.get_width_lib()
         self.wcwidth = ww.wcwidth
         self.wcswidth = ww.wcswidth
 
