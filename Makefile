@@ -12,13 +12,19 @@ build: update_license_block smoketest
 	python2.6 setup.py bdist_egg
 	python2.7 setup.py bdist_egg
 
+setup_environment:
+	if test -d tools; then \
+	    ln -f tools/gitignore .gitignore; \
+	    ln -f tools/vimprojects .vimprojects; \
+	fi
+
 update_license_block:
-	chmod +x update_license
-	find . -type f | grep '\(.py\|.c\)$$' | xargs ./update_license
+	chmod +x tools/update_license
+	find . -type f | grep '\(.py\|.c\)$$' | xargs tools/update_license
 
 setuptools:
 	$(PYTHON) -c "import setuptools" || \
-		curl http://peak.telecommunity.com/dist/ez_setup.py | $(PYTHON)
+	    curl http://peak.telecommunity.com/dist/ez_setup.py | $(PYTHON)
 
 install: smoketest setuptools
 	$(PYTHON) setup.py install
@@ -31,7 +37,7 @@ uninstall:
 
 clean:
 	for name in dist build *.egg-info htmlcov *.pyc *.o; \
-		do find . -type d -name $$name || true; \
+	    do find . -type d -name $$name || true; \
 	done | xargs $(RM)
 
 smoketest:
