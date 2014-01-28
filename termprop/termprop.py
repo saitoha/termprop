@@ -538,11 +538,13 @@ class MockTermprop(Termprop):
 
     def set_cjk(self):
         self.is_cjk = True
+        ww = self.get_width_lib()
         self.wcwidth = ww.wcwidth_cjk
         self.wcswidth = ww.wcswidth_cjk
 
     def set_noncjk(self):
         self.is_cjk = False
+        ww = self.get_width_lib()
         self.wcwidth = ww.wcwidth
         self.wcswidth = ww.wcswidth
 
