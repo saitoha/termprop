@@ -62,7 +62,7 @@ def _getbg():
     try:
         sys.stdout.flush()
         for i in xrange(0, 20):
-            rfd, wfd, xfd = select.select([sys.stdin.fileno()], [], [], 0.1)
+            rfd, wfd, xfd = select.select([sys.stdin.fileno()], [], [], 0.01)
             if rfd:
                 data += os.read(0, 1024)
                 m = _bg_pattern.search(data)
@@ -178,8 +178,8 @@ def _guess_combine():
 
 def _guess_nonbmp():
     if _get_width("𠀁") == 2:
-        return False
-    return True
+        return True
+    return False
 
 
 def _guess_title():
@@ -289,6 +289,9 @@ class Termprop:
             elif self.is_vte():
                 self.has_cpr = True
                 self.cpr_off_by_one_glitch = False
+            elif self.is_tanasinn():
+                self.has_cpr = True
+                self.cpr_off_by_one_glitch = False
             elif self.has_cpr is None:
                 cpr_state = _guess_cpr()
 
@@ -308,27 +311,30 @@ class Termprop:
                 self.is_cjk = _guess_cjk()
 #                self.has_altscreen = _guess_altscreen()
                 if self.is_iterm2():
-                    self.has_nonbmp = False
+                    self.has_nonbmp = True
                     self.has_combine = True
                 elif self.is_mouseterm_plus():
-                    self.has_nonbmp = False
+                    self.has_nonbmp = True
                     self.has_combine = True
                 elif self.is_mintty():
-                    self.has_nonbmp = False
+                    self.has_nonbmp = True
                     self.has_combine = True
                 elif self.is_cygwin_console():
-                    self.has_nonbmp = True
+                    self.has_nonbmp = False
                     self.has_combine = True
                 elif self.is_st():
-                    self.has_nonbmp = True
+                    self.has_nonbmp = False
                     self.has_combine = True
                 elif self.is_urxvt():
-                    self.has_nonbmp = False
+                    self.has_nonbmp = True
                     self.has_combine = True
                 elif self.is_mlterm():
-                    self.has_nonbmp = False
+                    self.has_nonbmp = True
                     self.has_combine = True
                 elif self.is_vte():
+                    self.has_nonbmp = False
+                    self.has_combine = True
+                elif self.is_tanasinn():
                     self.has_nonbmp = True
                     self.has_combine = True
                 else:
@@ -336,7 +342,7 @@ class Termprop:
                     self.has_combine = _guess_combine()
             else:
                 self.is_cjk = False
-                self.has_nonbmp = True
+                self.has_nonbmp = False
                 self.has_combine = True
                 self.has_altscreen = False
 
@@ -347,26 +353,26 @@ class Termprop:
                 self.set_noncjk()
 
             if not self.term.startswith("vt"):
-
-                if self.is_iterm2():
-                    self.color_bg = None
-                    self.has_bgfg_color_report = False
-                elif self.is_mouseterm_plus():
-                    self.color_bg = None
-                    self.has_bgfg_color_report = False
-                elif self.is_rxvt():
-                    self.color_bg = None
-                    self.has_bgfg_color_report = False
-                elif self.is_vte():
-                    self.color_bg = None
-                    self.has_bgfg_color_report = False
-                elif self.is_cygwin_console():
-                    self.color_bg = None
-                    self.has_bgfg_color_report = False
-                else:
-                    self.color_bg = _get_bg()
-                    if self.color_bg:
-                        self.has_bgfg_color_report = True
+#
+#                if self.is_iterm2():
+#                    self.color_bg = None
+#                    self.has_bgfg_color_report = False
+#                elif self.is_mouseterm_plus():
+#                    self.color_bg = None
+#                    self.has_bgfg_color_report = False
+#                elif self.is_rxvt():
+#                    self.color_bg = None
+#                    self.has_bgfg_color_report = False
+#                elif self.is_vte():
+#                    self.color_bg = None
+#                    self.has_bgfg_color_report = False
+#                elif self.is_cygwin_console():
+#                    self.color_bg = None
+#                    self.has_bgfg_color_report = False
+#                else:
+#                    self.color_bg = _get_bg()
+#                    if self.color_bg:
+#                        self.has_bgfg_color_report = True
 
                 # detect title capability
                 if self.is_iterm2():
@@ -390,6 +396,9 @@ class Termprop:
                 elif self.is_vte():
                     self.has_title = False
                     self.has_mb_title = False
+                elif self.is_tanasinn():
+                    self.has_title = True
+                    self.has_mb_title = True
                 else:
                     self.has_title = _guess_title()
                     if self.has_title:
@@ -470,6 +479,11 @@ class Termprop:
     def is_mlterm(self):
         return re.match(">1;96;0", self.da2) is not None
 
+    def is_tanasinn(self):
+        if self.da2 != "0;277;0":
+            return False
+        return self.da1.startswith("64;")
+
     def is_urxvt(self):
         if self.term.startswith("rxvt-unicode"):
             return True
@@ -492,7 +506,7 @@ class Termprop:
             self.__oldtermios = termios.tcgetattr(0)
             new = termios.tcgetattr(0)
             new[3] &= ~(termios.ECHO | termios.ICANON)
-            new[6][termios.VMIN] = 1 
+            new[6][termios.VMIN] = 1
             new[6][termios.VTIME] = 1
             termios.tcsetattr(0, termios.TCSANOW, new)
 
