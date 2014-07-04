@@ -59,7 +59,7 @@ _bg_pattern = re.compile(
 
 def _getbg():
     data = ""
-    sys.stdout.write("\x1b[2h\x1b]11;?\x1b\\")
+    sys.stdout.write("\x1b[2h\x1b]11;?\x07\x1b\\")
     try:
         sys.stdout.flush()
         for i in xrange(0, 20):
@@ -184,13 +184,13 @@ def _guess_nonbmp():
 
 
 def _guess_title():
-    if _get_width("\x1b]2;a\x1b\\") == 0:
+    if _get_width("\x1b]2;a\x07\x1b\\") == 0:
         return True
     return False
 
 
 def _guess_mb_title():
-    if _get_width("\x1b]2;＜a\x1b\\") == 0:
+    if _get_width("\x1b]2;＜a\x07\x1b\\") == 0:
         return True
     return False
 
@@ -403,7 +403,7 @@ class Termprop:
                 if _pattern_256color.search(self.term):
                     self.has_256color = True
 
-                sys.stdout.write("\x1b]2;\x1b\\")
+                sys.stdout.write("\x1b]2;\x07\x1b\\")
 
         finally:
             sys.stdout.write("\x1bc")
